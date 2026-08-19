@@ -323,32 +323,32 @@ lemma continuous_LSeries_aux (hf : Summable (nterm f σ')) :
 -- Here compact support is used but perhaps it is not necessary
 set_option backward.isDefEq.respectTransparency false in
 lemma limiting_fourier_aux (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1)) {s | 1 < s.re})
-    (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ')) (ψ : CS 2 ℂ) (hx : 1 ≤ x) (σ' : ℝ)
+    (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ')) (ψ : ℝ → ℂ) (hψ1 : ContDiff ℝ 2 ψ) (hψ2 : HasCompactSupport ψ) (hx : 1 ≤ x) (σ' : ℝ)
     (hσ' : 1 < σ') :
-    ∑' n, term f σ' n * 𝓕 (ψ : ℝ → ℂ) (1 / (2 * π) * log (n / x)) -
-    A * (x ^ (1 - σ') : ℝ) * ∫ u in Ici (- log x), rexp (-u * (σ' - 1)) * 𝓕 (ψ : ℝ → ℂ)
+    ∑' n, term f σ' n * 𝓕 ψ (1 / (2 * π) * log (n / x)) -
+    A * (x ^ (1 - σ') : ℝ) * ∫ u in Ici (- log x), rexp (-u * (σ' - 1)) * 𝓕 ψ
       (u / (2 * π)) = ∫ t : ℝ, G (σ' + t * I) * ψ t * x ^ (t * I) := by
-  have hint : Integrable ψ := ψ.h1.continuous.integrable_of_hasCompactSupport ψ.h2
+  have hint : Integrable ψ := hψ1.continuous.integrable_of_hasCompactSupport hψ2
   have l3 : 0 < x := zero_lt_one.trans_le hx
   have l1 (σ') (hσ' : 1 < σ') := first_fourier hf hint l3 hσ'
-  have l2 (σ') (hσ' : 1 < σ') := second_fourier ψ.h1.continuous.measurable hint l3 hσ'
+  have l2 (σ') (hσ' : 1 < σ') := second_fourier hψ1.continuous.measurable hint l3 hσ'
   have l8 : Continuous fun t : ℝ ↦ (x : ℂ) ^ (t * I) :=
     continuous_const.cpow (continuous_ofReal.mul continuous_const) (by simp [l3])
   have l6 : Continuous fun t : ℝ ↦ LSeries f (↑σ' + ↑t * I) * ψ t * ↑x ^ (↑t * I) := by
-    apply ((continuous_LSeries_aux (hf _ hσ')).mul ψ.h1.continuous).mul l8
+    apply ((continuous_LSeries_aux (hf _ hσ')).mul hψ1.continuous).mul l8
   have l4 : Integrable fun t : ℝ ↦ LSeries f (↑σ' + ↑t * I) * ψ t * ↑x ^ (↑t * I) := by
-    exact l6.integrable_of_hasCompactSupport ψ.h2.mul_left.mul_right
+    exact l6.integrable_of_hasCompactSupport hψ2.mul_left.mul_right
   have e2 (u : ℝ) : σ' + u * I - 1 ≠ 0 := by
     intro h ; have := congr_arg Complex.re h ; simp at this ; linarith
   have l7 : Continuous fun a ↦ A * ↑(x ^ (1 - σ')) * (↑(x ^ (σ' - 1)) *
       (1 / (σ' + a * I - 1) * ψ a * x ^ (a * I))) := by
     simp only [one_div, ← mul_assoc]
-    refine ((continuous_const.mul <| Continuous.inv₀ ?_ e2).mul ψ.h1.continuous).mul l8
+    refine ((continuous_const.mul <| Continuous.inv₀ ?_ e2).mul hψ1.continuous).mul l8
     fun_prop
   have l5 : Integrable fun a ↦ A * ↑(x ^ (1 - σ')) * (↑(x ^ (σ' - 1)) *
       (1 / (σ' + a * I - 1) * ψ a * x ^ (a * I))) := by
     apply l7.integrable_of_hasCompactSupport
-    exact ψ.h2.mul_left.mul_right.mul_left.mul_left
+    exact hψ2.mul_left.mul_right.mul_left.mul_left
 
   simp_rw [l1 σ' hσ', l2 σ' hσ', ← integral_const_mul, ← integral_sub l4 l5]
   apply integral_congr_ae
@@ -875,7 +875,7 @@ theorem limiting_fourier_lim2 (A : ℝ) (ψ : ℝ → ℂ) (hψ : IsW21 ψ) (hx 
       suffices h : Continuous (fun n ↦ ((rexp (-x * (n - 1))) : ℂ)) by simpa using h.tendsto 1
       continuity
 
-theorem limiting_fourier_lim3 (hG : ContinuousOn G {s | 1 ≤ s.re}) (ψ : CS 2 ℂ) (hx : 1 ≤ x) :
+theorem limiting_fourier_lim3 (hG : ContinuousOn G {s | 1 ≤ s.re}) (ψ : ℝ → ℂ) (hψ1 : ContDiff ℝ 2 ψ) (hψ2 : HasCompactSupport ψ) (hx : 1 ≤ x) :
     Tendsto (fun σ' : ℝ ↦ ∫ t : ℝ, G (σ' + t * I) * ψ t * x ^ (t * I)) (𝓝[>] 1)
       (𝓝 (∫ t : ℝ, G (1 + t * I) * ψ t * x ^ (t * I))) := by
 
@@ -887,7 +887,7 @@ theorem limiting_fourier_lim3 (hG : ContinuousOn G {s | 1 ≤ s.re}) (ψ : CS 2 
   have l1 : IsCompact S := by
     refine Metric.isCompact_iff_isClosed_bounded.mpr ⟨?_, ?_⟩
     · exact isClosed_Icc.reProdIm (isClosed_tsupport ψ)
-    · exact (Metric.isBounded_Icc 1 2).reProdIm ψ.h2.isBounded
+    · exact (Metric.isBounded_Icc 1 2).reProdIm hψ2.isBounded
   have l2 : S ⊆ {s : ℂ | 1 ≤ s.re} := fun z hz => (mem_reProdIm.mp hz).1.1
   have l3 : ContinuousOn (‖G ·‖) S := (hG.mono l2).norm
   have l4 : S.Nonempty := ⟨1 + a₀ * I, by simp [S, mem_reProdIm, ha₀]⟩
@@ -899,7 +899,7 @@ theorem limiting_fourier_lim3 (hG : ContinuousOn G {s | 1 ≤ s.re}) (ψ : CS 2 
   · apply eventually_of_mem (U := Icc 1 2) (Icc_mem_nhdsGT_of_mem (by simp)) ; intro u hu
     apply Continuous.aestronglyMeasurable
     apply Continuous.mul
-    · exact (hG.comp_continuous (by fun_prop) (by simp [hu.1])).mul ψ.h1.continuous
+    · exact (hG.comp_continuous (by fun_prop) (by simp [hu.1])).mul hψ1.continuous
     · apply Continuous.const_cpow (by fun_prop) ; simp ; linarith
   · apply eventually_of_mem (U := Icc 1 2) (Icc_mem_nhdsGT_of_mem (by simp))
     intro u hu
@@ -915,8 +915,8 @@ theorem limiting_fourier_lim3 (hG : ContinuousOn G {s | 1 ≤ s.re}) (ψ : CS 2 
     · have : v ∉ Function.support ψ := fun a ↦ h (subset_tsupport ψ a)
       simp at this ; simp [this, bound]
 
-  · suffices h : Continuous bound by exact h.integrable_of_hasCompactSupport ψ.h2.norm.mul_left
-    have := ψ.h1.continuous ; fun_prop
+  · suffices h : Continuous bound by exact h.integrable_of_hasCompactSupport hψ2.norm.mul_left
+    have := hψ1.continuous ; fun_prop
   · apply Eventually.of_forall ; intro t
     apply Tendsto.mul_const
     apply Tendsto.mul_const
@@ -927,16 +927,16 @@ theorem limiting_fourier_lim3 (hG : ContinuousOn G {s | 1 ≤ s.re}) (ψ : CS 2 
 lemma limiting_fourier (hcheby : cheby f)
     (hG : ContinuousOn G {s | 1 ≤ s.re})
     (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1)) {s | 1 < s.re})
-    (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ')) (ψ : CS 2 ℂ) (hx : 1 ≤ x) :
-    ∑' n, f n / n * 𝓕 (ψ : ℝ → ℂ) (1 / (2 * π) * log (n / x)) -
-      A * ∫ u in Set.Ici (-log x), 𝓕 (ψ : ℝ → ℂ) (u / (2 * π)) =
+    (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ')) (ψ : ℝ → ℂ) (hψ1 : ContDiff ℝ 2 ψ) (hψ2 : HasCompactSupport ψ) (hx : 1 ≤ x) :
+    ∑' n, f n / n * 𝓕 ψ (1 / (2 * π) * log (n / x)) -
+      A * ∫ u in Set.Ici (-log x), 𝓕 ψ (u / (2 * π)) =
       ∫ (t : ℝ), (G (1 + t * I)) * (ψ t) * x ^ (t * I) := by
 
-  have l1 := limiting_fourier_lim1 hcheby ψ ψ.isW21 (by linarith)
-  have l2 := limiting_fourier_lim2 A ψ ψ.isW21 hx
-  have l3 := limiting_fourier_lim3 hG ψ hx
+  have l1 := limiting_fourier_lim1 hcheby ψ (IsW21.of_hasCompactSupport hψ1 hψ2) (by linarith)
+  have l2 := limiting_fourier_lim2 A ψ (IsW21.of_hasCompactSupport hψ1 hψ2) hx
+  have l3 := limiting_fourier_lim3 hG ψ hψ1 hψ2 hx
   apply tendsto_nhds_unique_of_eventuallyEq (l1.sub l2) l3
-  simpa [eventuallyEq_nhdsWithin_iff] using! Eventually.of_forall (limiting_fourier_aux hG' hf ψ hx)
+  simpa [eventuallyEq_nhdsWithin_iff] using! Eventually.of_forall (limiting_fourier_aux hG' hf ψ hψ1 hψ2 hx)
 
 set_option backward.isDefEq.respectTransparency false in
 lemma limiting_cor_aux {f : ℝ → ℂ} : Tendsto (fun x : ℝ ↦ ∫ t, f t * x ^ (t * I)) atTop (𝓝 0) := by
@@ -960,15 +960,15 @@ lemma limiting_cor_aux {f : ℝ → ℂ} : Tendsto (fun x : ℝ ↦ ∫ t, f t *
   refine (Real.zero_at_infty_fourier f).comp <| Tendsto.mono_right ?_ _root_.atBot_le_cocompact
   exact (tendsto_neg_atBot_iff.mpr tendsto_log_atTop).atBot_mul_const (inv_pos.mpr two_pi_pos)
 
-lemma limiting_cor (ψ : CS 2 ℂ) (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ')) (hcheby : cheby f)
+lemma limiting_cor (ψ : ℝ → ℂ) (hψ1 : ContDiff ℝ 2 ψ) (hψ2 : HasCompactSupport ψ) (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ')) (hcheby : cheby f)
     (hG : ContinuousOn G {s | 1 ≤ s.re})
     (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1)) {s | 1 < s.re}) :
-    Tendsto (fun x : ℝ ↦ ∑' n, f n / n * 𝓕 (ψ : ℝ → ℂ) (1 / (2 * π) * log (n / x)) -
-      A * ∫ u in Set.Ici (-log x), 𝓕 (ψ : ℝ → ℂ) (u / (2 * π))) atTop (𝓝 0) := by
+    Tendsto (fun x : ℝ ↦ ∑' n, f n / n * 𝓕 ψ (1 / (2 * π) * log (n / x)) -
+      A * ∫ u in Set.Ici (-log x), 𝓕 ψ (u / (2 * π))) atTop (𝓝 0) := by
 
   apply limiting_cor_aux.congr'
   filter_upwards [eventually_ge_atTop 1] with x hx using
-    limiting_fourier hcheby hG hG' hf ψ hx |>.symm
+    limiting_fourier hcheby hG hG' hf ψ hψ1 hψ2 hx |>.symm
 
 lemma smooth_urysohn (a b c d : ℝ) (h1 : a < b) (h3 : c < d) : ∃ Ψ : ℝ → ℝ,
     (ContDiff ℝ ∞ Ψ) ∧ (HasCompactSupport Ψ) ∧
@@ -1385,7 +1385,7 @@ lemma limiting_cor_W21 (ψ : W21) (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (n
   -- Build the truncation
   obtain g := exists_trunc
   let Ψ R := g.scale R * ψ
-  have key R : Tendsto (fun x ↦ S x (Ψ R)) atTop (𝓝 0) := limiting_cor (Ψ R) hf hcheby hG hG'
+  have key R : Tendsto (fun x ↦ S x (Ψ R)) atTop (𝓝 0) := limiting_cor (Ψ R) (Ψ R).h1 (Ψ R).h2 hf hcheby hG hG'
 
   -- Choose the truncation radius
   obtain ⟨C, hcheby⟩ := hcheby
