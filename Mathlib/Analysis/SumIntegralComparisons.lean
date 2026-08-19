@@ -101,61 +101,31 @@ theorem AntitoneOn.integral_le_sum_Ico (hab : a ≤ b) (hf : AntitoneOn f (Set.I
   suffices ∫ x in a..a + ↑(b - a), f x ≤ ∑ x ∈ .range (b - a), f (a + x) by simp_all
   exact AntitoneOn.integral_le_sum (by simp only [hf, hab, Nat.cast_sub, add_sub_cancel])
 
-theorem AntitoneOn.sum_le_integral (hf : AntitoneOn f (Icc x₀ (x₀ + a))) :
+private theorem intervalIntegrable_subset_of_integrableOn
+    (hfi : IntegrableOn f (Icc x₀ (x₀ + a)))
+    (k : ℕ) (hk : k + 1 ≤ a) : IntervalIntegrable f volume (x₀ + k) (x₀ + ↑(k + 1)) := by
+  refine IntegrableOn.intervalIntegrable (hfi.mono_set ?_)
+  rw [uIcc_of_le (by simp)]
+  apply Icc_subset_Icc <;> simp [-Nat.cast_add, hk]
+
+theorem AntitoneOn.sum_le_integral_of_integrableOn (hf : AntitoneOn f (Ioc x₀ (x₀ + a)))
+    (hfi : IntegrableOn f (Icc x₀ (x₀ + a))) :
     ∑ i ∈ .range a, f (x₀ + ↑(i + 1)) ≤ ∫ x in x₀..x₀ + a, f x := calc
   _ = ∑ i ∈ .range a, ∫ _ in x₀ + i..x₀ + ↑(i + 1), f (x₀ + ↑(i + 1)) := by simp
   _ ≤ ∑ i ∈ .range a, ∫ x in x₀ + i..x₀ + ↑(i + 1), f x := by
     gcongr with i hi
     rw [Finset.mem_range, ← Nat.add_one_le_iff] at hi
-    have := hf.intervalIntegrable_subset _ hi
+    have := intervalIntegrable_subset_of_integrableOn hfi _ hi
     rify at hi this ⊢
-    exact integral_mono_on (by simp) (by simp) this fun _ _ ↦ by apply hf <;> grind
+    exact integral_mono_on_of_le_Ioo (by simp) (by simp) this fun _ _ ↦ by apply hf <;> grind
   _ = _ := by
-    convert! sum_integral_adjacent_intervals hf.intervalIntegrable_subset
+    convert! sum_integral_adjacent_intervals (intervalIntegrable_subset_of_integrableOn hfi)
     simp [-Nat.cast_add]
 
-/-- A version of `AntitoneOn.sum_le_integral` that only requires `f` to be antitone on the
-half-open interval `Ioc x₀ (x₀ + a)`, at the price of assuming it integrable. This allows `f` to
-blow up at the left endpoint, as for `f x = (x * (1 + Real.log x ^ 2))⁻¹` on `Ioc 0 a`. -/
-theorem AntitoneOn.sum_le_integral_of_integrableOn (hf : AntitoneOn f (Ioc x₀ (x₀ + a)))
-    (hfi : IntegrableOn f (Icc x₀ (x₀ + a))) :
-    ∑ i ∈ .range a, f (x₀ + ↑(i + 1)) ≤ ∫ x in x₀..x₀ + a, f x := by
-  obtain _ | a := a
-  · simp
-  push_cast at hf hfi ⊢
-  have h₁ : x₀ ≤ x₀ + 1 := by linarith
-  have h₂ : x₀ + 1 ≤ x₀ + ((a : ℝ) + 1) := by linarith
-  have hi₁ : IntervalIntegrable f volume x₀ (x₀ + 1) := by
-    refine IntegrableOn.intervalIntegrable ?_
-    rw [uIcc_of_le h₁]
-    exact hfi.mono_set (Icc_subset_Icc le_rfl h₂)
-  have hi₂ : IntervalIntegrable f volume (x₀ + 1) (x₀ + ((a : ℝ) + 1)) := by
-    refine IntegrableOn.intervalIntegrable ?_
-    rw [uIcc_of_le h₂]
-    exact hfi.mono_set (Icc_subset_Icc h₁ le_rfl)
-  -- on the first interval, `f` is bounded below by its value at the right endpoint
-  have key₁ : f (x₀ + 1) ≤ ∫ x in x₀..x₀ + 1, f x := by
-    rw [show f (x₀ + 1) = ∫ _ in x₀..x₀ + 1, f (x₀ + 1) by simp]
-    have hae : Ioc x₀ (x₀ + 1) ∈ ae (volume.restrict (Icc x₀ (x₀ + 1))) := by
-      have hc : (Ioc x₀ (x₀ + 1))ᶜ ∩ Icc x₀ (x₀ + 1) = {x₀} := by
-        simp [← Set.sdiff_eq_compl_inter]
-      rw [mem_ae_iff, Measure.restrict_apply' measurableSet_Icc, hc]
-      exact Real.volume_singleton
-    refine integral_mono_ae_restrict h₁ (by simp) hi₁ (Filter.eventually_of_mem hae ?_)
-    exact fun x hx ↦ hf ⟨hx.1, by linarith [hx.2]⟩ ⟨by linarith, by linarith⟩ hx.2
-  -- on the rest, `f` is antitone on a closed interval, so the original lemma applies
-  have key₂ : ∑ i ∈ .range a, f (x₀ + 1 + ↑(i + 1)) ≤ ∫ x in x₀ + 1..x₀ + 1 + (a : ℝ), f x :=
-    AntitoneOn.sum_le_integral
-      (hf.mono fun x hx ↦ ⟨by linarith [hx.1], by linarith [hx.2]⟩)
-  rw [show x₀ + 1 + (a : ℝ) = x₀ + ((a : ℝ) + 1) by ring] at key₂
-  rw [Finset.sum_range_succ', ← integral_add_adjacent_intervals hi₁ hi₂]
-  push_cast at key₂ ⊢
-  simp only [zero_add]
-  have hsum : ∑ i ∈ Finset.range a, f (x₀ + ((i : ℝ) + 1 + 1)) =
-      ∑ i ∈ Finset.range a, f (x₀ + 1 + ((i : ℝ) + 1)) :=
-    Finset.sum_congr rfl fun i _ ↦ by ring_nf
-  rw [hsum]
-  linarith
+theorem AntitoneOn.sum_le_integral (hf : AntitoneOn f (Icc x₀ (x₀ + a))) :
+    ∑ i ∈ .range a, f (x₀ + ↑(i + 1)) ≤ ∫ x in x₀..x₀ + a, f x :=
+  (hf.mono Ioc_subset_Icc_self).sum_le_integral_of_integrableOn
+    (hf.integrableOn_isCompact isCompact_Icc)
 
 theorem AntitoneOn.sum_le_integral_Ico (hab : a ≤ b) (hf : AntitoneOn f (Icc a b)) :
     ∑ i ∈ .Ico a b, f ↑(i + 1) ≤ ∫ x in a..b, f x := by
