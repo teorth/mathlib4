@@ -45,18 +45,6 @@ This file is a draft port from the `PrimeNumberTheoremAnd` project.
 
 @[expose] public section
 
--- These belong next to `Circle.norm_coe` and `Circle.norm_smul` in
--- `Mathlib/Analysis/Complex/Circle.lean`; upstream them when convenient.
-namespace Circle
-
-@[simp] protected theorem nnnorm_coe (z : Circle) : ‖(z : ℂ)‖₊ = 1 :=
-  NNReal.coe_injective z.norm_coe
-
-@[simp] protected theorem nnnorm_smul {E : Type*} [SeminormedAddCommGroup E] [NormedSpace ℂ E]
-    (u : Circle) (v : E) : ‖u • v‖₊ = ‖v‖₊ :=
-  NNReal.coe_injective (Circle.norm_smul u v)
-
-end Circle
 -- note: the opening of ArithmeticFunction introduces a notation σ that seems
 -- impossible to hide, and hence parameters that are traditionally called σ will
 -- have to be called σ' instead in this file.
