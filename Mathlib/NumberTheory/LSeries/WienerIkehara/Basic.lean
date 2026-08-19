@@ -12,8 +12,8 @@ public import Mathlib.Analysis.Normed.Group.Tannery
 public import Mathlib.Analysis.SumIntegralComparisons
 public import Mathlib.NumberTheory.Chebyshev
 public import Mathlib.NumberTheory.LSeries.PrimesInAP
-public import Mathlib.NumberTheory.LSeries.WienerIkehara.Fourier
 public import Mathlib.NumberTheory.LSeries.WienerIkehara.SmoothExistence
+public import Mathlib.NumberTheory.LSeries.WienerIkehara.Sobolev
 public import Mathlib.NumberTheory.MulChar.Lemmas
 public import Mathlib.Topology.EMetricSpace.BoundedVariation
 
@@ -44,6 +44,19 @@ This file is a draft port from the `PrimeNumberTheoremAnd` project.
 -/
 
 @[expose] public section
+
+-- These belong next to `Circle.norm_coe` and `Circle.norm_smul` in
+-- `Mathlib/Analysis/Complex/Circle.lean`; upstream them when convenient.
+namespace Circle
+
+@[simp] protected theorem nnnorm_coe (z : Circle) : ‖(z : ℂ)‖₊ = 1 :=
+  NNReal.coe_injective z.norm_coe
+
+@[simp] protected theorem nnnorm_smul {E : Type*} [SeminormedAddCommGroup E] [NormedSpace ℂ E]
+    (u : Circle) (v : E) : ‖u • v‖₊ = ‖v‖₊ :=
+  NNReal.coe_injective (Circle.norm_smul u v)
+
+end Circle
 -- note: the opening of ArithmeticFunction introduces a notation σ that seems
 -- impossible to hide, and hence parameters that are traditionally called σ will
 -- have to be called σ' instead in this file.
@@ -265,18 +278,10 @@ lemma second_fourier (hcont : Measurable ψ) (hsupp : Integrable ψ)
 lemma one_add_sq_pos (u : ℝ) : 0 < 1 + u ^ 2 := zero_lt_one.trans_le (by simpa using sq_nonneg u)
 
 lemma decay_bounds_key (f : W21) (u : ℝ) : ‖𝓕 (f : ℝ → ℂ) u‖ ≤ ‖f‖ * (1 + u ^ 2)⁻¹ := by
-  have l1 : 0 < 1 + u ^ 2 := one_add_sq_pos _
-  have l2 : 1 + u ^ 2 = ‖(1 : ℂ) + u ^ 2‖ := by
-    norm_cast ; simp only [Real.norm_eq_abs, abs_eq_self.2 l1.le]
-  have l3 : ‖1 / ((4 : ℂ) * ↑π ^ 2)‖ ≤ (4 * π ^ 2)⁻¹ := by simp
-  have key := fourierIntegral_self_add_deriv_deriv f u
-  simp only [Function.iterate_succ _ 1, Function.iterate_one, Function.comp_apply] at key
-  rw [F_sub f.hf (f.hf''.const_mul (1 / (4 * ↑π ^ 2)))] at key
-  rw [← div_eq_mul_inv, le_div_iff₀ l1, mul_comm, l2, ← norm_mul, key, sub_eq_add_neg]
-  apply norm_add_le _ _ |>.trans
-  change _ ≤ W21.norm _
-  rw [norm_neg, F_mul, norm_mul, W21.norm]
-  gcongr <;> apply VectorFourier.norm_fourierIntegral_le_integral_norm
+  rw [← div_eq_mul_inv, le_div_iff₀ (one_add_sq_pos u), mul_comm]
+  show _ ≤ W21.norm _
+  simpa [W21.norm, iteratedDeriv_succ, iteratedDeriv_zero] using
+    Real.one_add_sq_mul_norm_fourier_le f.smooth (fun k hk ↦ f.integrable hk) u
 
 lemma decay_bounds_cor (ψ : W21) :
     ∃ C : ℝ, ∀ u, ‖𝓕 (ψ : ℝ → ℂ) u‖ ≤ C / (1 + u ^ 2) := by
@@ -1405,7 +1410,7 @@ lemma limiting_cor_W21 (ψ : W21) (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (n
   have S1_sub_1 x : 𝓕 (⇑ψ - ⇑(Ψ R)) x = 𝓕 (ψ : ℝ → ℂ) x - 𝓕 ⇑(Ψ R) x := by
     have l1 : AEStronglyMeasurable (fun x_1 : ℝ ↦ cexp (-(2 * ↑π * (↑x_1 * ↑x) * I))) volume := by
       refine (Continuous.mul ?_ continuous_const).neg.cexp.aestronglyMeasurable
-      apply continuous_const.mul <| contDiff_ofReal.continuous.mul continuous_const
+      apply continuous_const.mul <| Complex.continuous_ofReal.mul continuous_const
     simp only [Real.fourier_eq', neg_mul, RCLike.inner_apply', conj_trivial, ofReal_neg,
       ofReal_mul, ofReal_ofNat, Pi.sub_apply, smul_eq_mul, mul_sub]
     apply integral_sub
@@ -1551,7 +1556,7 @@ lemma wiener_ikehara_smooth (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f
   let h (x : ℝ) : ℂ := rexp (2 * π * x) * Ψ (exp (2 * π * x))
   have h1 : ContDiff ℝ ∞ h := by
     have : ContDiff ℝ ∞ (fun x : ℝ => (rexp (2 * π * x))) := (contDiff_const.mul contDiff_id).exp
-    exact (contDiff_ofReal.comp this).mul (hsmooth.comp this)
+    exact (Complex.ofRealCLM.contDiff.comp this).mul (hsmooth.comp this)
   have h2 : HasCompactSupport h := by
     have : 2 * π ≠ 0 := by simp [pi_ne_zero]
     simpa using! (comp_exp_support hsupp hplus).comp_smul this |>.mul_left
@@ -1617,7 +1622,7 @@ lemma wiener_ikehara_smooth_real {f : ℕ → ℝ} {Ψ : ℝ → ℝ}
     Tendsto (fun x : ℝ ↦ (∑' n, f n * Ψ (n / x)) / x) atTop (nhds (A * ∫ y in Set.Ioi 0, Ψ y)) := by
 
   let Ψ' := ofReal ∘ Ψ
-  have l1 : ContDiff ℝ ∞ Ψ' := contDiff_ofReal.comp hsmooth
+  have l1 : ContDiff ℝ ∞ Ψ' := Complex.ofRealCLM.contDiff.comp hsmooth
   have l2 : HasCompactSupport Ψ' := hsupp.comp_left rfl
   have l3 : closure (Function.support Ψ') ⊆ Ioi 0 := by rwa [Function.support_comp_eq] ; simp
   have key := (continuous_re.tendsto _).comp

@@ -46,12 +46,6 @@ section lemmas
 
 noncomputable def funscale {E : Type*} (g : ℝ → E) (R x : ℝ) : E := g (R⁻¹ • x)
 
-lemma contDiff_ofReal : ContDiff ℝ ∞ ofReal := by
-  have key x : HasDerivAt ofReal 1 x := hasDerivAt_id x |>.ofReal_comp
-  have key' : deriv ofReal = fun _ => 1 := by ext x ; exact (key x).deriv
-  refine contDiff_infty_iff_deriv.mpr ⟨fun x => (key x).differentiableAt, ?_⟩
-  simpa [key'] using contDiff_const
-
 omit [NormedSpace ℝ E] in
 lemma tendsto_funscale {f : ℝ → E} (hf : ContinuousAt f 0) (x : ℝ) :
     Tendsto (fun R => funscale f R x) atTop (𝓝 (f 0)) :=
@@ -66,7 +60,7 @@ variable {f : CS n E} {R x v : ℝ}
 instance : CoeFun (CS n E) (fun _ => ℝ → E) where coe := CS.toFun
 
 instance : Coe (CS n ℝ) (CS n ℂ) where coe f := ⟨fun x => f x,
-  contDiff_ofReal.of_le (mod_cast le_top) |>.comp f.h1, f.h2.comp_left (g := ofReal) rfl⟩
+  Complex.ofRealCLM.contDiff.comp f.h1, f.h2.comp_left (g := ofReal) rfl⟩
 
 def neg (f : CS n E) : CS n E where
   toFun := -f
