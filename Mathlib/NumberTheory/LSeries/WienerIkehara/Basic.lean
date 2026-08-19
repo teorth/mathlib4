@@ -577,13 +577,9 @@ lemma Asymptotics.IsBigO.add_isLittleO_right {f g : ℝ → ℝ} (h : g =o[atTop
        _ ≤ |(|f x| - |g x|)| := le_abs_self _
        _ ≤ _ := by rw [← sub_neg_eq_add, ← abs_neg (g x)] ; exact abs_abs_sub_abs_le (f x) (-g x)
 
-lemma Asymptotics.IsBigO.sq {α : Type*} [Preorder α] {f g : α → ℝ} (h : f =O[atTop] g) :
-    (fun n ↦ f n ^ 2) =O[atTop] (fun n => g n ^ 2) := by
-  simpa [pow_two] using h.mul h
-
 lemma log_sq_isbigo_mul {a b : ℝ} (hb : 0 < b) :
     (fun x ↦ Real.log x ^ 2) =O[atTop] (fun x ↦ a + Real.log (x / b) ^ 2) := by
-  apply (log_isbigo_log_div hb).sq.trans ; simp_rw [add_comm a]
+  apply ((log_isbigo_log_div hb).pow 2).trans ; simp_rw [add_comm a]
   refine IsBigO.add_isLittleO_right <| isLittleO_const_of_tendsto_atTop _ ?_
   exact (tendsto_pow_atTop two_ne_zero).comp <|
     tendsto_log_atTop.comp <| tendsto_id.atTop_div_const hb
@@ -593,14 +589,12 @@ theorem log_add_div_isBigO_log (a : ℝ) {b : ℝ} (hb : 0 < b) :
   convert log_mul_add_isBigO_log (inv_pos.mpr hb) (a / b) using 3 ; ring
 
 lemma log_add_one_sub_log_le {x : ℝ} (hx : 0 < x) : nabla Real.log x ≤ x⁻¹ := by
-  have l1 : ContinuousOn Real.log (Icc x (x + 1)) := by
-    apply continuousOn_log.mono ; intro t ⟨h1, _⟩ ; simp ; linarith
-  have l2 t (ht : t ∈ Ioo x (x + 1)) : HasDerivAt Real.log t⁻¹ t :=
-    Real.hasDerivAt_log (by linarith [ht.1])
-  obtain ⟨t, ⟨ht1, _⟩, htx⟩ := exists_hasDerivAt_eq_slope Real.log (·⁻¹) (by linarith) l1 l2
-  simp only [add_sub_cancel_left, div_one] at htx
-  rw [nabla, ← htx, inv_le_inv₀ (by linarith) hx]
-  exact ht1.le
+  have h1 : Real.log (x + 1) - Real.log x = Real.log ((x + 1) / x) :=
+    (Real.log_div (by linarith) hx.ne').symm
+  rw [nabla, h1]
+  refine (Real.log_le_sub_one_of_pos (by positivity)).trans_eq ?_
+  field_simp
+  ring
 
 lemma nabla_log_main : nabla Real.log =O[atTop] fun x ↦ 1 / x := by
   apply IsBigO.of_bound 1
@@ -624,7 +618,7 @@ lemma nnabla_mul_log_sq (a : ℝ) {b : ℝ} (hb : 0 < b) :
     ext n ; simp [nabla] ; ring
   have l2 := (isLittleO_const_of_tendsto_atTop a
     ((tendsto_pow_atTop two_ne_zero).comp tendsto_log_atTop)).isBigO
-  have l3 := (log_add_div_isBigO_log 1 hb).sq
+  have l3 := (log_add_div_isBigO_log 1 hb).pow 2
   have l4 : (fun x => Real.log ((x + 1) / b) + Real.log (x / b)) =O[atTop] Real.log := by
     simpa using (log_add_div_isBigO_log _ hb).add (log_add_div_isBigO_log 0 hb)
   have e2 : (fun x : ℝ => x * (Real.log x * (1 / x))) =ᶠ[atTop] Real.log := by
@@ -1475,20 +1469,6 @@ lemma fourier_surjection_on_schwartz (f : 𝓢(ℝ, ℂ)) : ∃ g : 𝓢(ℝ, �
   refine ⟨𝓕⁻ f, ?_⟩
   exact FourierTransform.fourier_fourierInv_eq f
 
-noncomputable def toSchwartz (f : ℝ → ℂ) (h1 : ContDiff ℝ ∞ f)
-    (h2 : HasCompactSupport f) : 𝓢(ℝ, ℂ) where
-  toFun := f
-  smooth' := h1
-  decay' k n := by
-    have l1 : Continuous (fun x => ‖x‖ ^ k * ‖iteratedFDeriv ℝ n f x‖) := by
-      have : ContDiff ℝ ∞ (iteratedFDeriv ℝ n f) := h1.iteratedFDeriv_right (mod_cast le_top)
-      exact Continuous.mul (by continuity) this.continuous.norm
-    have l2 : HasCompactSupport (fun x ↦ ‖x‖ ^ k * ‖iteratedFDeriv ℝ n f x‖) :=
-      (h2.iteratedFDeriv _).norm.mul_left
-    simpa using l1.bounded_above_of_compact_support l2
-
-@[simp] lemma toSchwartz_apply (f : ℝ → ℂ) {h1 h2 x} : SchwartzMap.mk f h1 h2 x = f x := rfl
-
 lemma comp_exp_support0 {Ψ : ℝ → ℂ} (hplus : closure (Function.support Ψ) ⊆ Ioi 0) :
     ∀ᶠ x in 𝓝 0, Ψ x = 0 :=
   notMem_tsupport_iff_eventuallyEq.mp (fun h => lt_irrefl 0 <| mem_Ioi.mp (hplus h))
@@ -1585,11 +1565,11 @@ lemma wiener_ikehara_smooth (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f
   have h2 : HasCompactSupport h := by
     have : 2 * π ≠ 0 := by simp [pi_ne_zero]
     simpa using! (comp_exp_support hsupp hplus).comp_smul this |>.mul_left
-  obtain ⟨g, hg⟩ := fourier_surjection_on_schwartz (toSchwartz h h1 h2)
+  obtain ⟨g, hg⟩ := fourier_surjection_on_schwartz (h2.toSchwartzMap h1)
 
   have l1 {y} (hy : 0 < y) : y * Ψ y = 𝓕 g (1 / (2 * π) * Real.log y) := by
-    simp only [one_div, mul_inv_rev, hg, toSchwartz, ofReal_exp, ofReal_mul, ofReal_ofNat,
-      toSchwartz_apply, ofReal_inv, h]
+    simp only [one_div, mul_inv_rev, hg, HasCompactSupport.toSchwartzMap_toFun, ofReal_exp, ofReal_mul, ofReal_ofNat,
+      ofReal_inv, h]
     field_simp
     norm_cast
     rw [Real.exp_log hy]
@@ -1612,7 +1592,7 @@ lemma wiener_ikehara_smooth (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f
       ↑A * ∫ (y : ℝ) in Ioi x⁻¹, Ψ y := by
     filter_upwards [eventually_gt_atTop 0] with x hx
     congr 1
-    simp only [hg, toSchwartz, ofReal_exp, ofReal_mul, ofReal_ofNat, toSchwartz_apply,
+    simp only [hg, HasCompactSupport.toSchwartzMap_toFun, ofReal_exp, ofReal_mul, ofReal_ofNat,
       ofReal_div, h]
     norm_cast ; field_simp; norm_cast
     rw [MeasureTheory.integral_Ici_eq_integral_Ioi]
@@ -1760,23 +1740,11 @@ lemma WI_sum_Iab_le' {f : ℕ → ℝ} (hpos : 0 ≤ f) {C : ℝ} (hcheby : cheb
     ∀ᶠ x : ℝ in atTop, (∑' n, f n * indicator (Ico a b) 1 (n / x)) / x ≤ C * 2 * b := by
   filter_upwards [eventually_gt_atTop (2 / b)] with x hx using WI_sum_Iab_le hpos hcheby hb hx
 
-lemma le_of_eventually_nhdsWithin {a b : ℝ} (h : ∀ᶠ c in 𝓝[>] b, a ≤ c) : a ≤ b := by
-  apply le_of_forall_gt ; intro d hd
-  have key : ∀ᶠ c in 𝓝[>] b, c < d := by
-    apply eventually_of_mem (U := Iio d) ?_ (fun x hx => hx)
-    rw [mem_nhdsWithin]
-    refine ⟨Iio d, isOpen_Iio, hd, inter_subset_left⟩
-  obtain ⟨x, h1, h2⟩ := (h.and key).exists
-  linarith
+lemma le_of_eventually_nhdsWithin {a b : ℝ} (h : ∀ᶠ c in 𝓝[>] b, a ≤ c) : a ≤ b :=
+  ge_of_tendsto (tendsto_id.mono_left nhdsWithin_le_nhds) h
 
-lemma ge_of_eventually_nhdsWithin {a b : ℝ} (h : ∀ᶠ c in 𝓝[<] b, c ≤ a) : b ≤ a := by
-  apply le_of_forall_lt ; intro d hd
-  have key : ∀ᶠ c in 𝓝[<] b, c > d := by
-    apply eventually_of_mem (U := Ioi d) ?_ (fun x hx => hx)
-    rw [mem_nhdsWithin]
-    refine ⟨Ioi d, isOpen_Ioi, hd, inter_subset_left⟩
-  obtain ⟨x, h1, h2⟩ := (h.and key).exists
-  linarith
+lemma ge_of_eventually_nhdsWithin {a b : ℝ} (h : ∀ᶠ c in 𝓝[<] b, c ≤ a) : b ≤ a :=
+  le_of_tendsto (tendsto_id.mono_left nhdsWithin_le_nhds) h
 
 lemma WI_tendsto_aux (a b : ℝ) {A : ℝ} (hA : 0 < A) :
     Tendsto (fun c => c / A - (b - a)) (𝓝[>] (A * (b - a))) (𝓝[>] 0) := by
