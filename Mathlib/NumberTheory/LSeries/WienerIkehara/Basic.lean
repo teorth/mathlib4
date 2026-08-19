@@ -977,10 +977,6 @@ lemma smooth_urysohn (a b c d : ℝ) (h1 : a < b) (h3 : c < d) : ∃ Ψ : ℝ �
   obtain ⟨ψ, l1, l2, l3, l4, -⟩ := smooth_urysohn_support_Ioo h1 h3
   refine ⟨ψ, l1, l2, l3, l4⟩
 
-noncomputable def exists_trunc : trunc := by
-  choose ψ h1 h2 h3 h4 using smooth_urysohn (-2) (-1) (1) (2) (by linarith) (by linarith)
-  exact ⟨⟨ψ, h1.of_le (by norm_cast), h2⟩, h3, h4⟩
-
 noncomputable def pp (a x : ℝ) : ℝ := a ^ 2 * (x + 1) ^ 2 + (1 - a) * (1 + a)
 
 lemma pp_pos {a : ℝ} (ha : a ∈ Ioo (-1) 1) (x : ℝ) : 0 < pp a x := by
@@ -1371,71 +1367,90 @@ lemma bound_main {C : ℝ} (A : ℂ) (x : ℝ) (hx : 1 ≤ x) (ψ : ℝ → ℂ)
   convert _root_.add_le_add l1 l2 using 1 ; ring
 
 set_option backward.isDefEq.respectTransparency false in
-lemma limiting_cor_W21 (ψ : W21) (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ'))
+lemma limiting_cor_W21 (ψ : ℝ → ℂ) (hψ : IsW21 ψ) (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ'))
     (hcheby : cheby f) (hG : ContinuousOn G {s | 1 ≤ s.re})
     (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1)) {s | 1 < s.re}) :
-    Tendsto (fun x : ℝ ↦ ∑' n, f n / n * 𝓕 (ψ : ℝ → ℂ) (1 / (2 * π) * log (n / x)) -
-      A * ∫ u in Set.Ici (-log x), 𝓕 (ψ : ℝ → ℂ) (u / (2 * π))) atTop (𝓝 0) := by
+    Tendsto (fun x : ℝ ↦ ∑' n, f n / n * 𝓕 ψ (1 / (2 * π) * log (n / x)) -
+      A * ∫ u in Set.Ici (-log x), 𝓕 ψ (u / (2 * π))) atTop (𝓝 0) := by
 
   -- Shorter notation for clarity
-  let S1 x (ψ : ℝ → ℂ) := ∑' (n : ℕ), f n / ↑n * 𝓕 (ψ : ℝ → ℂ) (1 / (2 * π) * Real.log (↑n / x))
-  let S2 x (ψ : ℝ → ℂ) := ↑A * ∫ (u : ℝ) in Ici (-Real.log x), 𝓕 (ψ : ℝ → ℂ) (u / (2 * π))
+  let S1 x (ψ : ℝ → ℂ) := ∑' (n : ℕ), f n / ↑n * 𝓕 ψ (1 / (2 * π) * Real.log (↑n / x))
+  let S2 x (ψ : ℝ → ℂ) := ↑A * ∫ (u : ℝ) in Ici (-Real.log x), 𝓕 ψ (u / (2 * π))
   let S x ψ := S1 x ψ - S2 x ψ ; change Tendsto (fun x ↦ S x ψ) atTop (𝓝 0)
 
   -- Build the truncation
-  obtain g := exists_trunc
-  let Ψ R := g.scale R * ψ
-  have key R : Tendsto (fun x ↦ S x (Ψ R)) atTop (𝓝 0) := limiting_cor (Ψ R) (Ψ R).h1 (Ψ R).h2 hf hcheby hG hG'
+  obtain ⟨g, hgsmooth, hgs, hg3, hg4⟩ := smooth_urysohn (-2) (-1) 1 2 (by linarith) (by linarith)
+  have hg : ContDiff ℝ 2 g := hgsmooth.of_le (by simp)
+  have hgnn (v : ℝ) : 0 ≤ g v := (Set.indicator_nonneg (by simp) v).trans (hg3 v)
+  have hg1 (v : ℝ) : g v ≤ 1 := (hg4 v).trans <| Set.indicator_le_self' (by simp) v
+  have hg0 : g =ᶠ[𝓝 0] 1 := by
+    have hmem : Set.Icc (-1) 1 ∈ 𝓝 (0 : ℝ) := by apply Icc_mem_nhds <;> linarith
+    exact eventually_of_mem hmem fun x hx ↦ le_antisymm (hg1 x) (by simpa [hx] using hg3 x)
+  set Ψ : ℝ → ℝ → ℂ := fun R v ↦ (g (R⁻¹ * v) : ℂ) * ψ v with hΨdef
+  have hΨ1 (R : ℝ) : ContDiff ℝ 2 (Ψ R) := by
+    rw [hΨdef]
+    exact (Complex.ofRealCLM.contDiff.comp (hg.comp (contDiff_const.mul contDiff_id))).mul hψ.smooth
+  have hΨ2 {R : ℝ} (hR : R ≠ 0) : HasCompactSupport (Ψ R) := by
+    rw [hΨdef]
+    refine HasCompactSupport.mul_right ?_
+    exact (hgs.comp_smul (inv_ne_zero hR)).comp_left (g := ofReal) rfl
+  have hΨW {R : ℝ} (hR : R ≠ 0) : IsW21 (Ψ R) := IsW21.of_hasCompactSupport (hΨ1 R) (hΨ2 hR)
+  have key (R : ℝ) (hR : R ≠ 0) : Tendsto (fun x ↦ S x (Ψ R)) atTop (𝓝 0) :=
+    limiting_cor (Ψ R) (hΨ1 R) (hΨ2 hR) hf hcheby hG hG'
 
   -- Choose the truncation radius
   obtain ⟨C, hcheby⟩ := hcheby
   have hC : 0 ≤ C := by
-    have : ‖f 0‖ ≤ C := by simpa [cumsum] using hcheby 1
-    have : 0 ≤ ‖f 0‖ := by positivity
+    have h1 : ‖f 0‖ ≤ C := by simpa [cumsum] using hcheby 1
+    have h2 : 0 ≤ ‖f 0‖ := by positivity
     linarith
-  have key2 : Tendsto (fun R ↦ W21.norm (ψ - Ψ R)) atTop (𝓝 0) := W21_approximation ψ g
-  simp_rw [Metric.tendsto_nhds] at key key2 ⊢ ; intro ε hε
+  have key2 : Tendsto (fun R ↦ W21.norm (ψ - Ψ R)) atTop (𝓝 0) :=
+    W21_approximation hψ hg hgs hg0 hgnn hg1
+  simp_rw [Metric.tendsto_nhds] at key2 ⊢ ; intro ε hε
   let M := C * (1 + 2 * π ^ 2) + ‖(A : ℂ)‖ * (2 * π ^ 2)
-  obtain ⟨R, hRψ⟩ := (key2 ((ε / 2) / (1 + M)) (by positivity)).exists
-  simp only [dist_zero_right, Real.norm_eq_abs, abs_eq_self.mpr W21.norm_nonneg] at hRψ key
+  obtain ⟨R, hRψ, hR1⟩ :=
+    ((key2 ((ε / 2) / (1 + M)) (by positivity)).and (eventually_ge_atTop 1)).exists
+  have hR0 : R ≠ 0 := by intro h ; rw [h] at hR1 ; linarith
+  have keyR := key R hR0
+  simp_rw [Metric.tendsto_nhds] at keyR
+  simp only [dist_zero_right, Real.norm_eq_abs, abs_eq_self.mpr W21.norm_nonneg] at hRψ keyR
 
   -- Apply the compact support case
-  filter_upwards [eventually_ge_atTop 1, key R (ε / 2) (by positivity)] with x hx key
+  filter_upwards [eventually_ge_atTop 1, keyR (ε / 2) (by positivity)] with x hx key
 
   -- Control the tail term
   have key3 : ‖S x (ψ - Ψ R)‖ < ε / 2 := by
-    have : ‖S x _‖ ≤ _ * M := @bound_main f C A x hx (ψ - Ψ R) (ψ.isW21.sub (Ψ R).isW21) hcheby
-    apply this.trans_lt
+    have hb : ‖S x _‖ ≤ _ * M := @bound_main f C A x hx (ψ - Ψ R) (hψ.sub (hΨW hR0)) hcheby
+    apply hb.trans_lt
     apply (mul_le_mul (d := 1 + M) le_rfl (by simp) (by positivity) W21.norm_nonneg).trans_lt
-    have : 0 < 1 + M := by positivity
-    convert! (mul_lt_mul_iff_left₀ this).mpr hRψ using 1 ; field_simp
+    have hM : 0 < 1 + M := by positivity
+    convert! (mul_lt_mul_iff_left₀ hM).mpr hRψ using 1 ; field_simp
 
   -- Conclude the proof
-  have S1_sub_1 x : 𝓕 (⇑ψ - ⇑(Ψ R)) x = 𝓕 (ψ : ℝ → ℂ) x - 𝓕 ⇑(Ψ R) x := by
+  have S1_sub_1 x : 𝓕 (ψ - Ψ R) x = 𝓕 ψ x - 𝓕 (Ψ R) x := by
     have l1 : AEStronglyMeasurable (fun x_1 : ℝ ↦ cexp (-(2 * ↑π * (↑x_1 * ↑x) * I))) volume := by
       refine (Continuous.mul ?_ continuous_const).neg.cexp.aestronglyMeasurable
       apply continuous_const.mul <| Complex.continuous_ofReal.mul continuous_const
     simp only [Real.fourier_eq', neg_mul, RCLike.inner_apply', conj_trivial, ofReal_neg,
       ofReal_mul, ofReal_ofNat, Pi.sub_apply, smul_eq_mul, mul_sub]
     apply integral_sub
-    · apply ψ.hf.bdd_mul (c := 1) l1 ; simp [Complex.norm_exp]
-    · apply (Ψ R : W21) |>.hf |>.bdd_mul (c := 1) l1
-      simp [Complex.norm_exp]
+    · apply hψ.hf.bdd_mul (c := 1) l1 ; simp [Complex.norm_exp]
+    · apply (hΨW hR0).hf.bdd_mul (c := 1) l1 ; simp [Complex.norm_exp]
 
   have S1_sub : S1 x (ψ - Ψ R) = S1 x ψ - S1 x (Ψ R) := by
     simp only [one_div, mul_inv_rev, S1_sub_1, mul_sub, S1] ; apply Summable.tsum_sub
-    · have := summable_fourier x (by positivity) ψ ψ.isW21 ⟨_, hcheby⟩
-      rw [summable_norm_iff] at this
-      simpa using this
-    · have := summable_fourier x (by positivity) (Ψ R) (Ψ R).isW21 ⟨_, hcheby⟩
-      rw [summable_norm_iff] at this
-      simpa using! this
+    · have h := summable_fourier x (by positivity) ψ hψ ⟨_, hcheby⟩
+      rw [summable_norm_iff] at h
+      simpa using h
+    · have h := summable_fourier x (by positivity) (Ψ R) (hΨW hR0) ⟨_, hcheby⟩
+      rw [summable_norm_iff] at h
+      simpa using! h
 
   have S2_sub : S2 x (ψ - Ψ R) = S2 x ψ - S2 x (Ψ R) := by
     simp only [S1_sub_1, S2] ; rw [integral_sub]
     · ring
-    · exact integrable_fourier ψ.isW21 (by positivity) |>.restrict
-    · exact integrable_fourier (Ψ R : W21).isW21 (by positivity) |>.restrict
+    · exact integrable_fourier hψ (by positivity) |>.restrict
+    · exact integrable_fourier (hΨW hR0) (by positivity) |>.restrict
 
   have S_sub : S x (ψ - Ψ R) = S x ψ - S x (Ψ R) := by simp [S, S1_sub, S2_sub] ; ring
   simpa [S_sub, Ψ] using norm_add_le _ _ |>.trans_lt (_root_.add_lt_add key3 key)
@@ -1445,7 +1460,7 @@ lemma limiting_cor_schwartz (ψ : 𝓢(ℝ, ℂ)) (hf : ∀ (σ' : ℝ), 1 < σ'
     (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1)) {s | 1 < s.re}) :
     Tendsto (fun x : ℝ ↦ ∑' n, f n / n * 𝓕 ψ (1 / (2 * π) * log (n / x)) -
       A * ∫ u in Set.Ici (-log x), 𝓕 ψ (u / (2 * π))) atTop (𝓝 0) :=
-  limiting_cor_W21 ψ hf hcheby hG hG'
+  limiting_cor_W21 ψ (IsW21.of_schwartz ψ) hf hcheby hG hG'
 
 -- just the surjectivity is stated here, as this is all that is needed for the current
 -- application, but perhaps one should state and prove bijectivity instead
