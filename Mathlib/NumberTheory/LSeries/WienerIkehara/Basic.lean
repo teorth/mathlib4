@@ -12,7 +12,7 @@ public import Mathlib.Analysis.Normed.Group.Tannery
 public import Mathlib.Analysis.SumIntegralComparisons
 public import Mathlib.NumberTheory.Chebyshev
 public import Mathlib.NumberTheory.LSeries.PrimesInAP
-public import Mathlib.NumberTheory.LSeries.WienerIkehara.SmoothExistence
+public import Mathlib.Geometry.Manifold.PartitionOfUnity
 public import Mathlib.NumberTheory.LSeries.WienerIkehara.Sobolev
 public import Mathlib.NumberTheory.MulChar.Lemmas
 public import Mathlib.Topology.EMetricSpace.BoundedVariation
@@ -958,12 +958,30 @@ lemma limiting_cor (ψ : ℝ → ℂ) (hψ1 : ContDiff ℝ 2 ψ) (hψ2 : HasComp
   filter_upwards [eventually_ge_atTop 1] with x hx using
     limiting_fourier hcheby hG hG' hf ψ hψ1 hψ2 hx |>.symm
 
+/-- A smooth Urysohn lemma on the real line: for `a < b` and `c < d` there is a smooth compactly
+supported function squeezed between the indicators of `Icc b c` and `Ioo a d`, whose support is
+exactly `Ioo a d`.  This specializes `exists_contMDiff_support_eq_eq_one_iff`. -/
+lemma smooth_urysohn_support_Ioo {a b c d : ℝ} (h1 : a < b) (h3 : c < d) :
+    ∃ Ψ : ℝ → ℝ, (ContDiff ℝ ∞ Ψ) ∧ (HasCompactSupport Ψ) ∧
+      indicator (Icc b c) 1 ≤ Ψ ∧ Ψ ≤ indicator (Ioo a d) 1 ∧ Function.support Ψ = Ioo a d := by
+  obtain ⟨Ψ, hsmooth, hrange, hsupp, hone⟩ :=
+    exists_contMDiff_support_eq_eq_one_iff (I := modelWithCornersSelf ℝ ℝ) (n := ⊤)
+      isOpen_Ioo isClosed_Icc (Icc_subset_Ioo h1 h3)
+  refine ⟨Ψ, hsmooth.contDiff, ?_, indicator_le' (fun x hx ↦ ?_) (fun x _ ↦ ?_),
+    fun x ↦ le_indicator_apply (fun _ ↦ ?_) (fun hx ↦ ?_), hsupp⟩
+  · exact HasCompactSupport.of_support_subset_isCompact isCompact_Icc (hsupp ▸ Ioo_subset_Icc_self)
+  · exact ((hone x).mp hx).ge
+  · exact (hrange (mem_range_self x)).1
+  · exact (hrange (mem_range_self x)).2
+  · have hx' : x ∉ Function.support Ψ := hsupp ▸ hx
+    simp only [Function.mem_support, not_not] at hx'
+    exact hx'.le
+
 lemma smooth_urysohn (a b c d : ℝ) (h1 : a < b) (h3 : c < d) : ∃ Ψ : ℝ → ℝ,
     (ContDiff ℝ ∞ Ψ) ∧ (HasCompactSupport Ψ) ∧
-      Set.indicator (Set.Icc b c) 1 ≤ Ψ ∧ Ψ ≤ Set.indicator (Set.Ioo a d) 1 := by
-
+      indicator (Icc b c) 1 ≤ Ψ ∧ Ψ ≤ indicator (Ioo a d) 1 := by
   obtain ⟨ψ, l1, l2, l3, l4, -⟩ := smooth_urysohn_support_Ioo h1 h3
-  refine ⟨ψ, l1, l2, l3, l4⟩
+  exact ⟨ψ, l1, l2, l3, l4⟩
 
 noncomputable def pp (a x : ℝ) : ℝ := a ^ 2 * (x + 1) ^ 2 + (1 - a) * (1 + a)
 
