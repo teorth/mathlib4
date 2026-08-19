@@ -5831,6 +5831,10 @@ public import Mathlib.NumberTheory.LSeries.Positivity
 public import Mathlib.NumberTheory.LSeries.PrimesInAP
 public import Mathlib.NumberTheory.LSeries.RiemannZeta
 public import Mathlib.NumberTheory.LSeries.SumCoeff
+public import Mathlib.NumberTheory.LSeries.WienerIkehara.Basic
+public import Mathlib.NumberTheory.LSeries.WienerIkehara.Fourier
+public import Mathlib.NumberTheory.LSeries.WienerIkehara.SmoothExistence
+public import Mathlib.NumberTheory.LSeries.WienerIkehara.Sobolev
 public import Mathlib.NumberTheory.LSeries.ZMod
 public import Mathlib.NumberTheory.LSeries.ZetaZeros
 public import Mathlib.NumberTheory.LegendreSymbol.AddCharacter
