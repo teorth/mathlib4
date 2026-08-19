@@ -13,6 +13,7 @@ public import Mathlib.Analysis.SumIntegralComparisons
 public import Mathlib.NumberTheory.Chebyshev
 public import Mathlib.NumberTheory.LSeries.PrimesInAP
 public import Mathlib.Geometry.Manifold.PartitionOfUnity
+public import Mathlib.MeasureTheory.Group.Circle
 public import Mathlib.NumberTheory.LSeries.WienerIkehara.Sobolev
 public import Mathlib.NumberTheory.MulChar.Lemmas
 public import Mathlib.Topology.EMetricSpace.BoundedVariation
@@ -80,14 +81,6 @@ lemma hf_coe1 (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ')) (hσ : 
   apply Summable.toNNReal
   convert hf σ' hσ with i
   simp [nterm_eq_norm_term]
-
-instance instMeasurableSpace : MeasurableSpace Circle :=
-  inferInstanceAs <| MeasurableSpace <| Subtype _
-instance instBorelSpace : BorelSpace Circle :=
-  inferInstanceAs <| BorelSpace <| Subtype (· ∈ Metric.sphere (0 : ℂ) 1)
-
--- TODO - add to mathlib
-attribute [fun_prop] Real.continuous_fourierChar
 
 lemma first_fourier_aux1 (hψ : AEMeasurable ψ) {x : ℝ} (n : ℕ) : AEMeasurable fun (u : ℝ) ↦
     (‖fourierChar (-(u * ((1 : ℝ) / ((2 : ℝ) * π) * (n / x).log))) • ψ u‖ₑ : ENNReal) := by
