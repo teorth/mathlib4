@@ -44,18 +44,6 @@ This file is a draft port from the `PrimeNumberTheoremAnd` project.
 -/
 
 @[expose] public section
-
-namespace Asymptotics
-
-theorem _root_.Filter.Eventually.natCast {f : ℝ → Prop} (hf : ∀ᶠ x in Filter.atTop, f x) :
-    ∀ᶠ n : ℕ in Filter.atTop, f n :=
-  tendsto_natCast_atTop_atTop.eventually hf
-
-theorem IsBigO.natCast {E : Type*} [Norm E] {f g : ℝ → E} (h : f =O[Filter.atTop] g) :
-    (fun n : ℕ => f n) =O[Filter.atTop] fun n : ℕ => g n :=
-  h.comp_tendsto tendsto_natCast_atTop_atTop
-
-end Asymptotics
 -- note: the opening of ArithmeticFunction introduces a notation σ that seems
 -- impossible to hide, and hence parameters that are traditionally called σ will
 -- have to be called σ' instead in this file.
@@ -765,7 +753,7 @@ lemma limiting_fourier_lim1_aux (hcheby : cheby f) (hx : 0 < x) (C : ℝ) (hC : 
   have l3 : a =O[atTop] (fun n => 1 / (n : ℝ)) := by
     simpa [a] using! IsBigO.mul l5 (isBigO_refl (fun n : ℕ => 1 / (n : ℝ)) _)
   have l4 : nnabla a =O[atTop] (fun n : ℕ => (n ^ 2 * (Real.log n) ^ 2)⁻¹) := by
-    convert (nnabla_bound C hx).natCast ; simp [nnabla, a]
+    convert (nnabla_bound C hx).natCast_atTop ; simp [nnabla, a]
 
   simp_rw [div_mul_eq_mul_div, mul_div_assoc, one_mul]
   apply dirichlet_test'
