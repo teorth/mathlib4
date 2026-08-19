@@ -70,7 +70,6 @@ open scoped ComplexConjugate
 variable {n : ℕ} {A a b c d u x y t σ' : ℝ} {ψ Ψ : ℝ → ℂ} {F G : ℂ → ℂ} {f : ℕ → ℂ} {𝕜 : Type}
   [RCLike 𝕜]
 
-
 noncomputable
 def nterm (f : ℕ → ℂ) (σ' : ℝ) (n : ℕ) : ℝ := if n = 0 then 0 else ‖f n‖ / n ^ σ'
 
@@ -176,8 +175,6 @@ lemma first_fourier (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ'))
         rw [norm_term_eq_nterm_re]
         simp
 
-
-
 @[continuity]
 lemma continuous_multiplicative_ofAdd : Continuous (⇑Multiplicative.ofAdd : ℝ → ℝ) := ⟨fun _ ↦ id⟩
 
@@ -277,51 +274,7 @@ lemma second_fourier (hcont : Measurable ψ) (hsupp : Integrable ψ)
     integral_Ioi_of_hasDerivAt_of_tendsto' hderiv (second_fourier_integrable_aux2 hσ) hf]
   simpa [f, f'] using second_fourier_aux hx
 
-
 lemma one_add_sq_pos (u : ℝ) : 0 < 1 + u ^ 2 := zero_lt_one.trans_le (by simpa using sq_nonneg u)
-
-theorem prelim_decay (ψ : ℝ → ℂ) (u : ℝ) : ‖𝓕 (ψ : ℝ → ℂ) u‖ ≤ ∫ t, ‖ψ t‖ :=
-  VectorFourier.norm_fourierIntegral_le_integral_norm ..
-
-theorem prelim_decay_2 (ψ : ℝ → ℂ) (hψ : Integrable ψ) (hvar : BoundedVariationOn ψ Set.univ)
-    (u : ℝ) (hu : u ≠ 0) :
-    ‖𝓕 (ψ : ℝ → ℂ) u‖ ≤ (eVariationOn ψ Set.univ).toReal / (2 * π * ‖u‖) := by sorry
-
-noncomputable def AbsolutelyContinuous (f : ℝ → ℂ) : Prop := (∀ᵐ x, DifferentiableAt ℝ f x) ∧
-  ∀ a b : ℝ, f b - f a = ∫ t in a..b, deriv f t
-
-theorem prelim_decay_3 (ψ : ℝ → ℂ) (hψ : Integrable ψ)
-    (habscont : AbsolutelyContinuous ψ)
-    (hvar : BoundedVariationOn (deriv ψ) Set.univ) (u : ℝ) (hu : u ≠ 0) :
-    ‖𝓕 (ψ : ℝ → ℂ) u‖ ≤ (eVariationOn (deriv ψ) Set.univ).toReal / (2 * π * ‖u‖) ^ 2 := by sorry
-
-theorem decay_alt (ψ : ℝ → ℂ) (hψ : Integrable ψ) (habscont : AbsolutelyContinuous ψ)
-    (hvar : BoundedVariationOn (deriv ψ) Set.univ) (u : ℝ) :
-    ‖𝓕 (ψ : ℝ → ℂ) u‖ ≤
-      ((∫ t, ‖ψ t‖) + (eVariationOn (deriv ψ) Set.univ).toReal / (2 * π) ^ 2) /
-        (1 + ‖u‖ ^ 2) := by
-  rw [le_div_iff₀' <| one_add_sq_pos ‖u‖]
-  by_cases hu : u = 0
-  · subst hu
-    simp only [norm_zero, ne_eq, OfNat.ofNat_ne_zero, not_false_eq_true, zero_pow, add_zero,
-      one_mul]
-    calc ‖𝓕 ψ 0‖ ≤ ∫ t, ‖ψ t‖ := prelim_decay ψ 0
-      _ ≤ (∫ t, ‖ψ t‖) + (eVariationOn (deriv ψ) Set.univ).toReal / (2 * π) ^ 2 := by
-          have : 0 ≤ (eVariationOn (deriv ψ) Set.univ).toReal / (2 * π) ^ 2 := by positivity
-          linarith
-  · have bound1 : ‖𝓕 ψ u‖ ≤ ∫ t, ‖ψ t‖ := prelim_decay ψ u
-    have bound2 : ‖𝓕 ψ u‖ ≤ (eVariationOn (deriv ψ) Set.univ).toReal / (2 * π * ‖u‖) ^ 2 :=
-      prelim_decay_3 ψ hψ habscont hvar u hu
-    have : (2 * π * ‖u‖) ^ 2 = (2 * π) ^ 2 * ‖u‖ ^ 2 := by ring
-    calc (1 + ‖u‖ ^ 2) * ‖𝓕 ψ u‖
-        = ‖𝓕 ψ u‖ * 1 + ‖𝓕 ψ u‖ * ‖u‖ ^ 2 := by ring
-      _ ≤ (∫ t, ‖ψ t‖) * 1 +
-            (eVariationOn (deriv ψ) Set.univ).toReal / (2 * π * ‖u‖) ^ 2 * ‖u‖ ^ 2 := by
-          gcongr
-      _ = (∫ t, ‖ψ t‖) + (eVariationOn (deriv ψ) Set.univ).toReal / (2 * π) ^ 2 := by
-          rw [mul_one, this, div_mul_eq_div_div]
-          congr 1
-          rw [div_mul_eq_mul_div, div_eq_iff (pow_ne_zero 2 <| norm_ne_zero_iff.mpr hu)]
 
 lemma decay_bounds_key (f : W21) (u : ℝ) : ‖𝓕 (f : ℝ → ℂ) u‖ ≤ ‖f‖ * (1 + u ^ 2)⁻¹ := by
   have l1 : 0 < 1 + u ^ 2 := one_add_sq_pos _
@@ -336,41 +289,6 @@ lemma decay_bounds_key (f : W21) (u : ℝ) : ‖𝓕 (f : ℝ → ℂ) u‖ ≤ 
   change _ ≤ W21.norm _
   rw [norm_neg, F_mul, norm_mul, W21.norm]
   gcongr <;> apply VectorFourier.norm_fourierIntegral_le_integral_norm
-
-lemma decay_bounds_aux {f : ℝ → ℂ} (hf : AEStronglyMeasurable f volume)
-    (h : ∀ t, ‖f t‖ ≤ A * (1 + t ^ 2)⁻¹) :
-    ∫ t, ‖f t‖ ≤ π * A := by
-  have l1 : Integrable (fun x ↦ A * (1 + x ^ 2)⁻¹) := integrable_inv_one_add_sq.const_mul A
-  simp_rw [← integral_univ_inv_one_add_sq, mul_comm, ← integral_const_mul]
-  exact integral_mono (l1.mono' hf (Eventually.of_forall h)).norm l1 h
-
-theorem decay_bounds_W21 (f : W21) (hA : ∀ t, ‖f t‖ ≤ A / (1 + t ^ 2))
-    (hA' : ∀ t, ‖deriv (deriv f) t‖ ≤ A / (1 + t ^ 2)) (u) :
-    ‖𝓕 (f : ℝ → ℂ) u‖ ≤ (π + 1 / (4 * π)) * A / (1 + u ^ 2) := by
-  have l0 : 1 * (4 * π)⁻¹ * A = (4 * π ^ 2)⁻¹ * (π * A) := by field_simp
-  have l1 : ∫ (v : ℝ), ‖f v‖ ≤ π * A := by
-    apply decay_bounds_aux f.continuous.aestronglyMeasurable
-    simp_rw [← div_eq_mul_inv] ; exact hA
-  have l2 : ∫ (v : ℝ), ‖deriv (deriv f) v‖ ≤ π * A := by
-    apply decay_bounds_aux f.deriv.deriv.continuous.aestronglyMeasurable
-    simp_rw [← div_eq_mul_inv] ; exact hA'
-  apply decay_bounds_key f u |>.trans
-  change W21.norm _ * _ ≤ _
-  simp_rw [W21.norm, div_eq_mul_inv, add_mul, l0] ; gcongr
-
-lemma decay_bounds (ψ : CS 2 ℂ) (hA : ∀ t, ‖ψ t‖ ≤ A / (1 + t ^ 2))
-    (hA' : ∀ t, ‖deriv^[2] ψ t‖ ≤ A / (1 + t ^ 2)) :
-    ‖𝓕 (ψ : ℝ → ℂ) u‖ ≤ (π + 1 / (4 * π)) * A / (1 + u ^ 2) := by
-  exact decay_bounds_W21 ψ hA hA' u
-
-lemma decay_bounds_cor_aux (ψ : CS 2 ℂ) : ∃ C : ℝ, ∀ u, ‖ψ u‖ ≤ C / (1 + u ^ 2) := by
-  have l1 : HasCompactSupport (fun u : ℝ => ((1 + u ^ 2) : ℝ) * ψ u) := by exact ψ.h2.mul_left
-  have := ψ.h1.continuous
-  obtain ⟨C, hC⟩ := l1.exists_bound_of_continuous (by fun_prop)
-  refine ⟨C, fun u => ?_⟩
-  specialize hC u
-  simp only [norm_mul, Complex.norm_real, norm_of_nonneg (one_add_sq_pos u).le] at hC
-  rwa [le_div_iff₀' (one_add_sq_pos _)]
 
 lemma decay_bounds_cor (ψ : W21) :
     ∃ C : ℝ, ∀ u, ‖𝓕 (ψ : ℝ → ℂ) u‖ ≤ C / (1 + u ^ 2) := by
@@ -391,10 +309,6 @@ lemma W21.integrable_fourier (ψ : W21) (hc : c ≠ 0) :
   obtain ⟨C, h⟩ := decay_bounds_cor ψ
   apply @Integrable.mono' ℝ ℂ _ volume _ _ (fun u => C / (1 + (u / c) ^ 2)) (l1 C) l2 ?_
   apply Eventually.of_forall (fun x => h _)
-
-
-
-
 
 lemma continuous_LSeries_aux (hf : Summable (nterm f σ')) :
     Continuous fun x : ℝ => LSeries f (σ' + x * I) := by
@@ -503,17 +417,9 @@ lemma Finset.sum_shift_front {E : Type*} [Ring E] {u : ℕ → E} {n : ℕ} :
     cumsum u (n + 1) = u 0 + cumsum (shift u) n := by
   simp_rw [add_comm n, cumsum, sum_range_add, sum_range_one, add_comm 1] ; rfl
 
-lemma Finset.sum_shift_front' {E : Type*} [Ring E] {u : ℕ → E} :
-    shift (cumsum u) = (fun _ => u 0) + cumsum (shift u) := by
-  ext n ; apply Finset.sum_shift_front
-
 lemma Finset.sum_shift_back {E : Type*} [Ring E] {u : ℕ → E} {n : ℕ} :
     cumsum u (n + 1) = cumsum u n + u n := by
   simp [cumsum, Finset.range_add_one, add_comm]
-
-lemma Finset.sum_shift_back' {E : Type*} [Ring E] {u : ℕ → E} :
-    shift (cumsum u) = cumsum u + u := by
-  ext n ; apply Finset.sum_shift_back
 
 lemma summation_by_parts {E : Type*} [Ring E] {a A b : ℕ → E} (ha : a = nabla A) {n : ℕ} :
     cumsum (a * b) (n + 1) = A (n + 1) * b n - A 0 * b 0 -
@@ -642,12 +548,6 @@ lemma tendsto_mul_add_atTop {a : ℝ} (ha : 0 < a) (b : ℝ) :
 lemma isLittleO_const_of_tendsto_atTop {α : Type*} [Preorder α] (a : ℝ) {f : α → ℝ}
     (hf : Tendsto f atTop atTop) : (fun _ => a) =o[atTop] f := by
   simp [tendsto_norm_atTop_atTop.comp hf]
-
-lemma isBigO_pow_pow_of_le {m n : ℕ} (h : m ≤ n) :
-    (fun x : ℝ => x ^ m) =O[atTop] (fun x : ℝ => x ^ n) := by
-  apply IsBigO.of_bound 1
-  filter_upwards [eventually_ge_atTop 1] with x l1
-  simpa [abs_eq_self.mpr (zero_le_one.trans l1)] using pow_le_pow_right₀ l1 h
 
 lemma isLittleO_mul_add_sq (a b : ℝ) : (fun x => a * x + b) =o[atTop] (fun x => x ^ 2) := by
   apply IsLittleO.add
@@ -1043,9 +943,6 @@ lemma limiting_fourier (hcheby : cheby f)
   apply tendsto_nhds_unique_of_eventuallyEq (l1.sub l2) l3
   simpa [eventuallyEq_nhdsWithin_iff] using! Eventually.of_forall (limiting_fourier_aux hG' hf ψ hx)
 
-
-
-
 set_option backward.isDefEq.respectTransparency false in
 lemma limiting_cor_aux {f : ℝ → ℂ} : Tendsto (fun x : ℝ ↦ ∫ t, f t * x ^ (t * I)) atTop (𝓝 0) := by
 
@@ -1078,10 +975,6 @@ lemma limiting_cor (ψ : CS 2 ℂ) (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (
   filter_upwards [eventually_ge_atTop 1] with x hx using
     limiting_fourier hcheby hG hG' hf ψ hx |>.symm
 
-
-
-
-
 lemma smooth_urysohn (a b c d : ℝ) (h1 : a < b) (h3 : c < d) : ∃ Ψ : ℝ → ℝ,
     (ContDiff ℝ ∞ Ψ) ∧ (HasCompactSupport Ψ) ∧
       Set.indicator (Set.Icc b c) 1 ≤ Ψ ∧ Ψ ≤ Set.indicator (Set.Ioo a d) 1 := by
@@ -1089,28 +982,11 @@ lemma smooth_urysohn (a b c d : ℝ) (h1 : a < b) (h3 : c < d) : ∃ Ψ : ℝ �
   obtain ⟨ψ, l1, l2, l3, l4, -⟩ := smooth_urysohn_support_Ioo h1 h3
   refine ⟨ψ, l1, l2, l3, l4⟩
 
-
-
 noncomputable def exists_trunc : trunc := by
   choose ψ h1 h2 h3 h4 using smooth_urysohn (-2) (-1) (1) (2) (by linarith) (by linarith)
   exact ⟨⟨ψ, h1.of_le (by norm_cast), h2⟩, h3, h4⟩
 
-lemma one_div_sub_one (n : ℕ) : 1 / (↑(n - 1) : ℝ) ≤ 2 / n := by
-  match n with
-  | 0 => simp
-  | 1 => simp
-  | n + 2 => { norm_cast ; rw [div_le_div_iff₀] <;> simp [mul_add] <;> linarith }
-
-lemma quadratic_pos (a b c x : ℝ) (ha : 0 < a) (hΔ : discrim a b c < 0) :
-    0 < a * x ^ 2 + b * x + c := by
-  have l1 : a * x ^ 2 + b * x + c = a * (x + b / (2 * a)) ^ 2 - discrim a b c / (4 * a) := by
-    simp only [discrim]; field_simp; ring
-  have l2 : 0 < - discrim a b c := by linarith
-  rw [l1, sub_eq_add_neg, ← neg_div] ; positivity
-
 noncomputable def pp (a x : ℝ) : ℝ := a ^ 2 * (x + 1) ^ 2 + (1 - a) * (1 + a)
-
-noncomputable def pp' (a x : ℝ) : ℝ := a ^ 2 * (2 * (x + 1))
 
 lemma pp_pos {a : ℝ} (ha : a ∈ Ioo (-1) 1) (x : ℝ) : 0 < pp a x := by
   simp only [pp]
@@ -1118,37 +994,11 @@ lemma pp_pos {a : ℝ} (ha : a ∈ Ioo (-1) 1) (x : ℝ) : 0 < pp a x := by
   have : 0 < 1 + a := by linarith [ha.1]
   positivity
 
-lemma pp_deriv (a x : ℝ) : HasDerivAt (pp a) (pp' a x) x := by
-  unfold pp pp'
-  simpa using hasDerivAt_id x |>.add_const 1 |>.pow 2 |>.const_mul _
-
-lemma pp_deriv_eq (a : ℝ) : deriv (pp a) = pp' a := by
-  ext x ; exact pp_deriv a x |>.deriv
-
-lemma pp'_deriv (a x : ℝ) : HasDerivAt (pp' a) (a ^ 2 * 2) x := by
-  simpa using! hasDerivAt_id x |>.add_const 1 |>.const_mul 2 |>.const_mul (a ^ 2)
-
-lemma pp'_deriv_eq (a : ℝ) : deriv (pp' a) = fun _ => a ^ 2 * 2 := by
-  ext x ; exact pp'_deriv a x |>.deriv
-
 noncomputable def hh (a t : ℝ) : ℝ := (t * (1 + (a * log t) ^ 2))⁻¹
 
 noncomputable def hh' (a t : ℝ) : ℝ := - pp a (log t) * hh a t ^ 2
 
 lemma hh_nonneg (a : ℝ) {t : ℝ} (ht : 0 ≤ t) : 0 ≤ hh a t := by dsimp only [hh] ; positivity
-
-lemma hh_le (a t : ℝ) (ht : 0 ≤ t) : |hh a t| ≤ t⁻¹ := by
-  by_cases h0 : t = 0
-  · simp [hh, h0]
-  replace ht : 0 < t := lt_of_le_of_ne ht (by tauto)
-  unfold hh
-  rw [abs_inv, inv_le_inv₀ (by positivity) ht, abs_mul, abs_eq_self.mpr ht.le]
-  convert_to! t * 1 ≤ _
-  · simp
-  apply mul_le_mul le_rfl ?_ zero_le_one ht.le
-  rw [abs_eq_self.mpr (by positivity)]
-  simp only [le_add_iff_nonneg_right]
-  positivity
 
 lemma hh_deriv (a : ℝ) {t : ℝ} (ht : t ≠ 0) : HasDerivAt (hh a) (hh' a t) t := by
   have e1 : t * (1 + (a * log t) ^ 2) ≠ 0 := mul_ne_zero ht (_root_.ne_of_lt (by positivity)).symm
@@ -1185,12 +1035,6 @@ lemma gg_of_hh {x : ℝ} (hx : x ≠ 0) (i : ℝ) : gg x i = x⁻¹ * hh (1 / (2
   simp only [gg, hh]
   field_simp
 
-lemma gg_l1 {x : ℝ} (hx : 0 < x) (n : ℕ) : |gg x n| ≤ 1 / n := by
-  simp only [gg_of_hh hx.ne.symm, one_div, mul_inv_rev, abs_mul]
-  apply mul_le_mul le_rfl (hh_le _ _ (by positivity)) (by positivity) (by positivity) |>.trans
-    (le_of_eq ?_)
-  simp [abs_inv, abs_eq_self.mpr hx.le] ; field_simp
-
 lemma gg_le_one (i : ℕ) : gg x i ≤ 1 := by
   by_cases hi : i = 0 <;> simp only [gg, hi, CharP.cast_eq_zero, div_zero, one_div, mul_inv_rev,
     zero_div, Real.log_zero, mul_zero, ne_eq, OfNat.ofNat_ne_zero, not_false_eq_true, zero_pow,
@@ -1213,9 +1057,6 @@ lemma one_div_two_pi_mem_Ioo : 1 / (2 * π) ∈ Ioo (-1) 1 := by
     trans 2
     · exact one_le_two
     · exact two_le_pi
-
-lemma sum_telescopic (a : ℕ → ℝ) (n : ℕ) : ∑ i ∈ Finset.range n, (a (i + 1) - a i) = a n - a 0 := by
-  apply Finset.sum_range_sub
 
 lemma cancel_aux {C : ℝ} {f g : ℕ → ℝ} (hf : 0 ≤ f) (hg : 0 ≤ g)
     (hf' : ∀ n, cumsum f n ≤ C * n) (hg' : Antitone g) (n : ℕ) :
@@ -1260,13 +1101,6 @@ lemma cancel_aux' {C : ℝ} {f g : ℕ → ℝ} (hf : 0 ≤ f) (hg : 0 ≤ g)
   have := cancel_aux hf hg hf' hg' n
   simp only [nsmul_eq_mul, ← Finset.mul_sum, sum_range_succ] at this
   convert this using 1 ; unfold cumsum ; ring
-
-lemma cancel_main {C : ℝ} {f g : ℕ → ℝ} (hf : 0 ≤ f) (hg : 0 ≤ g)
-    (hf' : ∀ n, cumsum f n ≤ C * n) (hg' : Antitone g) (n : ℕ) (hn : 2 ≤ n) :
-    cumsum (f * g) n ≤ C * cumsum g n := by
-  convert! cancel_aux' hf hg hf' hg' n using 1
-  match n with
-  | n + 2 => simp only [cumsum_succ] ; push_cast ; ring
 
 lemma cancel_main' {C : ℝ} {f g : ℕ → ℝ} (hf : 0 ≤ f) (hf0 : f 0 = 0) (hg : 0 ≤ g)
     (hf' : ∀ n, cumsum f n ≤ C * n) (hg' : Antitone g) (n : ℕ) :
@@ -1591,7 +1425,6 @@ lemma bound_main {C : ℝ} (A : ℂ) (x : ℝ) (hx : 1 ≤ x) (ψ : W21)
   apply norm_sub_le _ _ |>.trans ; rw [norm_mul]
   convert _root_.add_le_add l1 l2 using 1 ; ring
 
-
 set_option backward.isDefEq.respectTransparency false in
 lemma limiting_cor_W21 (ψ : W21) (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ'))
     (hcheby : cheby f) (hG : ContinuousOn G {s | 1 ≤ s.re})
@@ -1669,19 +1502,12 @@ lemma limiting_cor_schwartz (ψ : 𝓢(ℝ, ℂ)) (hf : ∀ (σ' : ℝ), 1 < σ'
       A * ∫ u in Set.Ici (-log x), 𝓕 (ψ : ℝ → ℂ) (u / (2 * π))) atTop (𝓝 0) :=
   limiting_cor_W21 ψ hf hcheby hG hG'
 
-
-
-
-
 -- just the surjectivity is stated here, as this is all that is needed for the current
 -- application, but perhaps one should state and prove bijectivity instead
 
 lemma fourier_surjection_on_schwartz (f : 𝓢(ℝ, ℂ)) : ∃ g : 𝓢(ℝ, ℂ), 𝓕 g = f := by
   refine ⟨𝓕⁻ f, ?_⟩
   exact FourierTransform.fourier_fourierInv_eq f
-
-
-
 
 noncomputable def toSchwartz (f : ℝ → ℂ) (h1 : ContDiff ℝ ∞ f)
     (h2 : HasCompactSupport f) : 𝓢(ℝ, ℂ) where
@@ -1778,8 +1604,6 @@ theorem wiener_ikehara_smooth_sub (h1 : Integrable Ψ)
     rw [abs_le] ; constructor <;> linarith
   simp [ht]
 
-
-
 lemma wiener_ikehara_smooth (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ')) (hcheby : cheby f)
     (hG : ContinuousOn G {s | 1 ≤ s.re})
     (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1)) {s | 1 < s.re})
@@ -1833,8 +1657,6 @@ lemma wiener_ikehara_smooth (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f
     exact wiener_ikehara_smooth_sub (hsmooth.continuous.integrable_of_hasCompactSupport hsupp) hplus
 
   simpa [tsum_div_const] using (key.congr' <| EventuallyEq.sub l2 l3) |>.add l4
-
-
 
 lemma wiener_ikehara_smooth' (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ')) (hcheby : cheby f)
     (hG : ContinuousOn G {s | 1 ≤ s.re})
@@ -2039,7 +1861,6 @@ theorem residue_nonneg {f : ℕ → ℝ} (hpos : 0 ≤ f)
     simpa [setIntegral_pos_iff_support_of_nonneg_ae r1 r2] using! zero_lt_one.trans_le r5
   have := div_nonneg l3 l4.le ; field_simp at this ; exact this
 
-
 lemma WienerIkeharaInterval {f : ℕ → ℝ} (hpos : 0 ≤ f) (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ'))
     (hcheby : cheby f) (hG : ContinuousOn G {s | 1 ≤ s.re})
     (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1)) {s | 1 < s.re}) (ha : 0 < a) (hb : a ≤ b) :
@@ -2107,19 +1928,11 @@ lemma WienerIkeharaInterval {f : ℕ → ℝ} (hpos : 0 ≤ f) (hf : ∀ (σ' : 
   have : liminf (S Iab) atTop ≤ limsup (S Iab) atTop := liminf_le_limsup Iab2 Iab3
   refine tendsto_of_liminf_eq_limsup ?_ ?_ Iab2 Iab3 <;> linarith
 
-
-
-lemma le_floor_mul_iff (hb : 0 ≤ b) (hx : 0 < x) : n ≤ ⌊b * x⌋₊ ↔ n / x ≤ b := by
-  rw [div_le_iff₀ hx, Nat.le_floor_iff] ; positivity
-
 lemma lt_ceil_mul_iff (hx : 0 < x) : n < ⌈b * x⌉₊ ↔ n / x < b := by
   rw [div_lt_iff₀ hx, Nat.lt_ceil]
 
 lemma ceil_mul_le_iff (hx : 0 < x) : ⌈a * x⌉₊ ≤ n ↔ a ≤ n / x := by
   rw [le_div_iff₀ hx, Nat.ceil_le]
-
-lemma mem_Icc_iff_div (hb : 0 ≤ b) (hx : 0 < x) : n ∈ Finset.Icc ⌈a * x⌉₊ ⌊b * x⌋₊ ↔ n / x ∈ Icc a b := by
-  rw [Finset.mem_Icc, mem_Icc, ceil_mul_le_iff hx, le_floor_mul_iff hb hx]
 
 lemma mem_Ico_iff_div (hx : 0 < x) : n ∈ Finset.Ico ⌈a * x⌉₊ ⌈b * x⌉₊ ↔ n / x ∈ Ico a b := by
   rw [Finset.mem_Ico, mem_Ico, ceil_mul_le_iff hx, lt_ceil_mul_iff hx]
@@ -2145,8 +1958,6 @@ lemma WienerIkeharaInterval_discrete' {f : ℕ → ℝ} (hpos : 0 ≤ f) (hf : �
   WienerIkeharaInterval_discrete hpos hf hcheby hG hG' ha hb |>.comp tendsto_natCast_atTop_atTop
 
 -- TODO with `Ico`
-
-
 
 /-- A version of the *Wiener-Ikehara Tauberian Theorem*: If `f` is a nonnegative arithmetic
 function whose L-series has a simple pole at `s = 1` with residue `A` and otherwise extends
@@ -2225,7 +2036,6 @@ theorem vonMangoldt_cheby : cheby Λ := by
   grw [Chebyshev.psi_le_const_mul_self <| sub_nonneg_of_le <| Nat.one_le_cast_iff_ne_zero.mpr h]
   gcongr
   linarith
-
 
 -- Proof extracted from the `EulerProducts` project so we can adapt it to the
 -- version of the Wiener-Ikehara theorem proved above (with the `cheby`
