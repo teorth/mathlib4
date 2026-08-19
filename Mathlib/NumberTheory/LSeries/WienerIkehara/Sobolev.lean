@@ -42,6 +42,27 @@ structure W1 (n : ℕ) (E : Type*) [NormedAddCommGroup E] [NormedSpace ℝ E] wh
 
 abbrev W21 := W1 2 ℂ
 
+/-- `f` lies in the Sobolev space `W^{2,1}(ℝ)`: it is `C²`, and it and its first two
+derivatives are integrable.  This is a `Prop`-valued replacement for the bundled space `W21`. -/
+structure IsW21 (f : ℝ → ℂ) : Prop where
+  smooth : ContDiff ℝ 2 f
+  integrable : ∀ ⦃k⦄, k ≤ 2 → Integrable (iteratedDeriv k f)
+
+namespace IsW21
+
+variable {f : ℝ → ℂ}
+
+lemma hf (h : IsW21 f) : Integrable f := by
+  simpa using h.integrable (zero_le_two)
+
+lemma hf' (h : IsW21 f) : Integrable (deriv f) := by
+  simpa [iteratedDeriv_succ, iteratedDeriv_zero] using h.integrable one_le_two
+
+lemma hf'' (h : IsW21 f) : Integrable (deriv (deriv f)) := by
+  simpa [iteratedDeriv_succ, iteratedDeriv_zero] using h.integrable le_rfl
+
+end IsW21
+
 section lemmas
 
 noncomputable def funscale {E : Type*} (g : ℝ → E) (R x : ℝ) : E := g (R⁻¹ • x)
@@ -234,6 +255,29 @@ lemma hf'' (f : W21) : Integrable (deriv (deriv f))  := by
   simpa [iteratedDeriv_succ] using f.integrable le_rfl
 
 end W21
+
+lemma IsW21.sub {f g : ℝ → ℂ} (hf : IsW21 f) (hg : IsW21 g) : IsW21 (f - g) where
+  smooth := hf.smooth.sub hg.smooth
+  integrable k hk := by
+    have h1 : ContDiff ℝ k f := hf.smooth.of_le (by simp [hk])
+    have h2 : ContDiff ℝ k g := hg.smooth.of_le (by simp [hk])
+    have h3 : iteratedDeriv k (f - g) = iteratedDeriv k f - iteratedDeriv k g := by
+      ext x ; exact iteratedDeriv_sub h1.contDiffAt h2.contDiffAt
+    simpa [h3] using (hf.integrable hk).sub (hg.integrable hk)
+
+lemma IsW21.of_hasCompactSupport {f : ℝ → ℂ} (h1 : ContDiff ℝ 2 f) (h2 : HasCompactSupport f) :
+    IsW21 f := by
+  refine ⟨h1, fun k hk ↦ ?_⟩ ; match k with
+  | 0 => exact h1.continuous.integrable_of_hasCompactSupport h2
+  | 1 => simpa using (h1.continuous_deriv one_le_two).integrable_of_hasCompactSupport h2.deriv
+  | 2 => simpa [iteratedDeriv_succ] using
+    (h1.iterate_deriv' 0 2).continuous.integrable_of_hasCompactSupport h2.deriv.deriv
+
+lemma CS.isW21 (f : CS 2 ℂ) : IsW21 (f : ℝ → ℂ) :=
+  IsW21.of_hasCompactSupport f.h1 f.h2
+
+lemma W21.isW21 (f : W21) : IsW21 (f : ℝ → ℂ) :=
+  ⟨f.smooth, fun _ hk ↦ f.integrable hk⟩
 
 theorem W21_approximation (f : W21) (g : trunc) :
     Tendsto (fun R => ‖f - (g.scale R * f : W21)‖) atTop (𝓝 0) := by

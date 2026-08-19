@@ -142,7 +142,7 @@ lemma first_fourier_aux2 (hx : 0 < x) (n : ℕ) :
 set_option backward.isDefEq.respectTransparency false in
 lemma first_fourier (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ'))
     (hsupp : Integrable ψ) (hx : 0 < x) (hσ : 1 < σ') :
-    ∑' n : ℕ, term f σ' n * (𝓕 (ψ : ℝ → ℂ) (1 / (2 * π) * log (n / x))) =
+    ∑' n : ℕ, term f σ' n * (𝓕 ψ (1 / (2 * π) * log (n / x))) =
     ∫ t : ℝ, LSeries f (σ' + t * I) * ψ t * x ^ (t * I) := by
 
   calc
@@ -229,7 +229,7 @@ lemma second_fourier_aux (hx : 0 < x) :
 set_option backward.isDefEq.respectTransparency false in
 lemma second_fourier (hcont : Measurable ψ) (hsupp : Integrable ψ)
     {x σ' : ℝ} (hx : 0 < x) (hσ : 1 < σ') :
-    ∫ u in Ici (-log x), Real.exp (-u * (σ' - 1)) * 𝓕 (ψ : ℝ → ℂ) (u / (2 * π)) =
+    ∫ u in Ici (-log x), Real.exp (-u * (σ' - 1)) * 𝓕 ψ (u / (2 * π)) =
     (x^(σ' - 1) : ℝ) * ∫ t, (1 / (σ' + t * I - 1)) * ψ t * x^(t * I) ∂ volume := by
 
   conv in ↑(rexp _) * _ => { rw [Real.fourier_real_eq, ← smul_eq_mul, ← integral_smul] }
@@ -277,29 +277,31 @@ lemma second_fourier (hcont : Measurable ψ) (hsupp : Integrable ψ)
 
 lemma one_add_sq_pos (u : ℝ) : 0 < 1 + u ^ 2 := zero_lt_one.trans_le (by simpa using sq_nonneg u)
 
-lemma decay_bounds_key (f : W21) (u : ℝ) : ‖𝓕 (f : ℝ → ℂ) u‖ ≤ ‖f‖ * (1 + u ^ 2)⁻¹ := by
+lemma decay_bounds_key (ψ : ℝ → ℂ) (hψ : IsW21 ψ) (u : ℝ) :
+    ‖𝓕 ψ u‖ ≤ W21.norm ψ * (1 + u ^ 2)⁻¹ := by
   rw [← div_eq_mul_inv, le_div_iff₀ (one_add_sq_pos u), mul_comm]
-  show _ ≤ W21.norm _
   simpa [W21.norm, iteratedDeriv_succ, iteratedDeriv_zero] using
-    Real.one_add_sq_mul_norm_fourier_le f.smooth (fun k hk ↦ f.integrable hk) u
+    Real.one_add_sq_mul_norm_fourier_le hψ.smooth (fun _ hk ↦ hψ.integrable hk) u
 
-lemma decay_bounds_cor (ψ : W21) :
-    ∃ C : ℝ, ∀ u, ‖𝓕 (ψ : ℝ → ℂ) u‖ ≤ C / (1 + u ^ 2) := by
-  simpa only [div_eq_mul_inv] using ⟨_, decay_bounds_key ψ⟩
+lemma decay_bounds_cor (ψ : ℝ → ℂ) (hψ : IsW21 ψ) :
+    ∃ C : ℝ, ∀ u, ‖𝓕 ψ u‖ ≤ C / (1 + u ^ 2) := by
+  simpa only [div_eq_mul_inv] using ⟨_, decay_bounds_key ψ hψ⟩
 
 set_option backward.isDefEq.respectTransparency false in
-@[continuity, fun_prop] lemma continuous_FourierIntegral (ψ : W21) : Continuous (𝓕 (ψ : ℝ → ℂ)) :=
+@[continuity, fun_prop] lemma continuous_FourierIntegral {ψ : ℝ → ℂ} (hψ : IsW21 ψ) :
+    Continuous (𝓕 ψ) :=
   VectorFourier.fourierIntegral_continuous continuous_fourierChar
     (by simp only [innerₗ_apply_apply, RCLike.inner_apply', conj_trivial, continuous_mul])
-    ψ.hf
+    hψ.hf
 
-lemma W21.integrable_fourier (ψ : W21) (hc : c ≠ 0) :
-    Integrable fun u ↦ 𝓕 (ψ : ℝ → ℂ) (u / c) := by
+lemma integrable_fourier {ψ : ℝ → ℂ} (hψ : IsW21 ψ) (hc : c ≠ 0) :
+    Integrable fun u ↦ 𝓕 ψ (u / c) := by
   have l1 (C) : Integrable (fun u ↦ C / (1 + (u / c) ^ 2)) volume := by
     simpa using! (integrable_inv_one_add_sq.comp_div hc).const_mul C
-  have l2 : AEStronglyMeasurable (fun u ↦ 𝓕 (ψ : ℝ → ℂ) (u / c)) volume := by
-    apply Continuous.aestronglyMeasurable ; fun_prop
-  obtain ⟨C, h⟩ := decay_bounds_cor ψ
+  have l2 : AEStronglyMeasurable (fun u ↦ 𝓕 ψ (u / c)) volume := by
+    apply Continuous.aestronglyMeasurable
+    exact (continuous_FourierIntegral hψ).comp (continuous_id.div_const c)
+  obtain ⟨C, h⟩ := decay_bounds_cor ψ hψ
   apply @Integrable.mono' ℝ ℂ _ volume _ _ (fun u => C / (1 + (u / c) ^ 2)) (l1 C) l2 ?_
   apply Eventually.of_forall (fun x => h _)
 
@@ -787,12 +789,12 @@ lemma limiting_fourier_lim1_aux (hcheby : cheby f) (hx : 0 < x) (C : ℝ) (hC : 
       grind
     field_simp
 
-theorem limiting_fourier_lim1 (hcheby : cheby f) (ψ : W21) (hx : 0 < x) :
+theorem limiting_fourier_lim1 (hcheby : cheby f) (ψ : ℝ → ℂ) (hψ : IsW21 ψ) (hx : 0 < x) :
     Tendsto (fun σ' : ℝ ↦
-        ∑' n, term f σ' n * 𝓕 (ψ : ℝ → ℂ) (1 / (2 * π) * Real.log (n / x))) (𝓝[>] 1)
-      (𝓝 (∑' n, f n / n * 𝓕 (ψ : ℝ → ℂ) (1 / (2 * π) * Real.log (n / x)))) := by
+        ∑' n, term f σ' n * 𝓕 ψ (1 / (2 * π) * Real.log (n / x))) (𝓝[>] 1)
+      (𝓝 (∑' n, f n / n * 𝓕 ψ (1 / (2 * π) * Real.log (n / x)))) := by
 
-  obtain ⟨C, hC⟩ := decay_bounds_cor ψ
+  obtain ⟨C, hC⟩ := decay_bounds_cor ψ hψ
   have : 0 ≤ C := by simpa using (norm_nonneg _).trans (hC 0)
   refine tendsto_tsum_of_dominated_convergence
     (limiting_fourier_lim1_aux hcheby hx C this) (fun n => ?_) ?_
@@ -818,12 +820,12 @@ theorem limiting_fourier_lim2_aux (x : ℝ) (C : ℝ) :
   exact (((integrable_inv_one_add_sq.comp_div
     (by simp [pi_ne_zero])).const_mul _).const_mul _).restrict
 
-theorem limiting_fourier_lim2 (A : ℝ) (ψ : W21) (hx : 1 ≤ x) :
+theorem limiting_fourier_lim2 (A : ℝ) (ψ : ℝ → ℂ) (hψ : IsW21 ψ) (hx : 1 ≤ x) :
     Tendsto (fun σ' ↦ A * ↑(x ^ (1 - σ')) *
-        ∫ u in Ici (-Real.log x), rexp (-u * (σ' - 1)) * 𝓕 (ψ : ℝ → ℂ) (u / (2 * π)))
-      (𝓝[>] 1) (𝓝 (A * ∫ u in Ici (-Real.log x), 𝓕 (ψ : ℝ → ℂ) (u / (2 * π)))) := by
+        ∫ u in Ici (-Real.log x), rexp (-u * (σ' - 1)) * 𝓕 ψ (u / (2 * π)))
+      (𝓝[>] 1) (𝓝 (A * ∫ u in Ici (-Real.log x), 𝓕 ψ (u / (2 * π)))) := by
 
-  obtain ⟨C, hC⟩ := decay_bounds_cor ψ
+  obtain ⟨C, hC⟩ := decay_bounds_cor ψ hψ
   apply Tendsto.mul
   · suffices h : Tendsto (fun σ' : ℝ ↦ ofReal (x ^ (1 - σ'))) (𝓝[>] 1) (𝓝 1) by
       simpa using h.const_mul ↑A
@@ -837,7 +839,7 @@ theorem limiting_fourier_lim2 (A : ℝ) (ψ : W21) (hx : 1 ≤ x) :
       (limiting_fourier_lim2_aux x C) ?_
     · apply Eventually.of_forall ; intro σ'
       apply Continuous.aestronglyMeasurable
-      have := continuous_FourierIntegral ψ
+      have := continuous_FourierIntegral hψ
       continuity
     · apply eventually_of_mem (U := Ioo 1 2)
       · apply Ioo_mem_nhdsGT_of_mem ; simp
@@ -930,8 +932,8 @@ lemma limiting_fourier (hcheby : cheby f)
       A * ∫ u in Set.Ici (-log x), 𝓕 (ψ : ℝ → ℂ) (u / (2 * π)) =
       ∫ (t : ℝ), (G (1 + t * I)) * (ψ t) * x ^ (t * I) := by
 
-  have l1 := limiting_fourier_lim1 hcheby ψ (by linarith)
-  have l2 := limiting_fourier_lim2 A ψ hx
+  have l1 := limiting_fourier_lim1 hcheby ψ ψ.isW21 (by linarith)
+  have l2 := limiting_fourier_lim2 A ψ ψ.isW21 hx
   have l3 := limiting_fourier_lim3 hG ψ hx
   apply tendsto_nhds_unique_of_eventuallyEq (l1.sub l2) l3
   simpa [eventuallyEq_nhdsWithin_iff] using! Eventually.of_forall (limiting_fourier_aux hG' hf ψ hx)
@@ -1292,59 +1294,61 @@ lemma bound_sum_log' {C : ℝ} (hf : chebyWith C f) {x : ℝ} (hx : 1 ≤ x) :
   simpa only [hh_integral'] using bound_sum_log0 hf hx
 
 variable (f x) in
-lemma summable_fourier_aux (ψ : W21) (i : ℕ) :
-    ‖f i / i * 𝓕 (ψ : ℝ → ℂ) (1 / (2 * π) * Real.log (i / x))‖ ≤
+lemma summable_fourier_aux (ψ : ℝ → ℂ) (hψ : IsW21 ψ) (i : ℕ) :
+    ‖f i / i * 𝓕 ψ (1 / (2 * π) * Real.log (i / x))‖ ≤
       W21.norm ψ * (‖f i‖ / i * (1 + (1 / (2 * π) * log (i / x)) ^ 2)⁻¹) := by
-  convert! mul_le_mul_of_nonneg_left (decay_bounds_key ψ (1 / (2 * π) * log (i / x)))
+  convert! mul_le_mul_of_nonneg_left (decay_bounds_key ψ hψ (1 / (2 * π) * log (i / x)))
     (norm_nonneg (f i / i)) using 1
   · simp
   · change _ = _ * (W21.norm ψ * _)
     simp only [W21.norm, mul_inv_rev, one_div, Complex.norm_div, RCLike.norm_natCast]
     ring
 
-lemma summable_fourier (x : ℝ) (hx : 0 < x) (ψ : W21) (hcheby : cheby f) :
-    Summable fun i ↦ ‖f i / ↑i * 𝓕 (ψ : ℝ → ℂ) (1 / (2 * π) * Real.log (↑i / x))‖ := by
+lemma summable_fourier (x : ℝ) (hx : 0 < x) (ψ : ℝ → ℂ) (hψ : IsW21 ψ) (hcheby : cheby f) :
+    Summable fun i ↦ ‖f i / ↑i * 𝓕 ψ (1 / (2 * π) * Real.log (↑i / x))‖ := by
   have l5 : Summable fun i ↦ ‖f i‖ / ↑i * ((1 + (1 / (2 * ↑π) * ↑(Real.log (↑i / x))) ^ 2)⁻¹) := by
     simpa using limiting_fourier_lim1_aux hcheby hx 1 (zero_le_one' ℝ)
-  have l6 := summable_fourier_aux x f ψ
+  have l6 := summable_fourier_aux x f ψ hψ
   exact Summable.of_nonneg_of_le (fun _ => norm_nonneg _) l6
     (by simpa using l5.const_smul (W21.norm ψ))
 
-lemma bound_I1 (x : ℝ) (hx : 0 < x) (ψ : W21) (hcheby : cheby f) :
-    ‖∑' n, f n / n * 𝓕 (ψ : ℝ → ℂ) (1 / (2 * π) * log (n / x))‖ ≤
+lemma bound_I1 (x : ℝ) (hx : 0 < x) (ψ : ℝ → ℂ) (hψ : IsW21 ψ) (hcheby : cheby f) :
+    ‖∑' n, f n / n * 𝓕 ψ (1 / (2 * π) * log (n / x))‖ ≤
     W21.norm ψ • ∑' i, ‖f i‖ / i * (1 + (1 / (2 * π) * log (i / x)) ^ 2)⁻¹ := by
 
   have l5 : Summable fun i ↦ ‖f i‖ / ↑i * ((1 + (1 / (2 * ↑π) * ↑(Real.log (↑i / x))) ^ 2)⁻¹) := by
     simpa using limiting_fourier_lim1_aux hcheby hx 1 (zero_le_one' ℝ)
-  have l6 := summable_fourier_aux x f ψ
-  have l1 : Summable fun i ↦ ‖f i / ↑i * 𝓕 (ψ : ℝ → ℂ) (1 / (2 * π) * Real.log (↑i / x))‖ := by
-    exact summable_fourier x hx ψ hcheby
+  have l6 := summable_fourier_aux x f ψ hψ
+  have l1 : Summable fun i ↦ ‖f i / ↑i * 𝓕 ψ (1 / (2 * π) * Real.log (↑i / x))‖ := by
+    exact summable_fourier x hx ψ hψ hcheby
   apply (norm_tsum_le_tsum_norm l1).trans
   simpa only [← Summable.tsum_const_smul _ l5] using!
     Summable.tsum_mono l1 (by simpa using l5.const_smul (W21.norm ψ)) l6
 
-lemma bound_I1' {C : ℝ} (x : ℝ) (hx : 1 ≤ x) (ψ : W21) (hcheby : chebyWith C f) :
-    ‖∑' n, f n / n * 𝓕 (ψ : ℝ → ℂ) (1 / (2 * π) * log (n / x))‖ ≤
+lemma bound_I1' {C : ℝ} (x : ℝ) (hx : 1 ≤ x) (ψ : ℝ → ℂ) (hψ : IsW21 ψ)
+    (hcheby : chebyWith C f) :
+    ‖∑' n, f n / n * 𝓕 ψ (1 / (2 * π) * log (n / x))‖ ≤
       W21.norm ψ * C * (1 + 2 * π ^ 2) := by
 
-  apply bound_I1 x (by linarith) ψ ⟨_, hcheby⟩ |>.trans
+  apply bound_I1 x (by linarith) ψ hψ ⟨_, hcheby⟩ |>.trans
   rw [smul_eq_mul, mul_assoc]
   apply mul_le_mul le_rfl (bound_sum_log' hcheby hx) ?_ W21.norm_nonneg
   apply tsum_nonneg (fun i => by positivity)
 
-lemma bound_I2 (x : ℝ) (ψ : W21) :
-    ‖∫ u in Set.Ici (-log x), 𝓕 (ψ : ℝ → ℂ) (u / (2 * π))‖ ≤ W21.norm ψ * (2 * π ^ 2) := by
+lemma bound_I2 (x : ℝ) (ψ : ℝ → ℂ) (hψ : IsW21 ψ) :
+    ‖∫ u in Set.Ici (-log x), 𝓕 ψ (u / (2 * π))‖ ≤ W21.norm ψ * (2 * π ^ 2) := by
 
-  have key a : ‖𝓕 (ψ : ℝ → ℂ) (a / (2 * π))‖ ≤ W21.norm ψ * (1 + (a / (2 * π)) ^ 2)⁻¹ :=
-    decay_bounds_key ψ _
+  have key a : ‖𝓕 ψ (a / (2 * π))‖ ≤ W21.norm ψ * (1 + (a / (2 * π)) ^ 2)⁻¹ :=
+    decay_bounds_key ψ hψ _
   have twopi : 0 ≤ 2 * π := by simp [pi_nonneg]
   have l3 : Integrable (fun a ↦ (1 + (a / (2 * π)) ^ 2)⁻¹) :=
     integrable_inv_one_add_sq.comp_div (by norm_num [pi_ne_zero])
   have l2 : IntegrableOn (fun i ↦ W21.norm ψ * (1 + (i / (2 * π)) ^ 2)⁻¹) (Ici (-Real.log x)) := by
     exact (l3.const_mul _).integrableOn
-  have l1 : IntegrableOn (fun i ↦ ‖𝓕 (ψ : ℝ → ℂ) (i / (2 * π))‖) (Ici (-Real.log x)) := by
+  have l1 : IntegrableOn (fun i ↦ ‖𝓕 ψ (i / (2 * π))‖) (Ici (-Real.log x)) := by
     refine ((l3.const_mul (W21.norm ψ)).mono' ?_ ?_).integrableOn
-    · apply Continuous.aestronglyMeasurable ; fun_prop
+    · exact (((continuous_FourierIntegral hψ).comp
+        (continuous_id.div_const _)).norm).aestronglyMeasurable
     · simp only [norm_norm, key] ; simp
   have l5 : 0 ≤ᵐ[volume] fun a ↦ (1 + (a / (2 * π)) ^ 2)⁻¹ := by
     apply Eventually.of_forall ; intro x ; positivity
@@ -1355,14 +1359,14 @@ lemma bound_I2 (x : ℝ) (ψ : W21) :
   rw [Measure.integral_comp_div (fun x => (1 + x ^ 2)⁻¹) (2 * π)]
   simp [abs_eq_self.mpr twopi] ; ring_nf ; rfl
 
-lemma bound_main {C : ℝ} (A : ℂ) (x : ℝ) (hx : 1 ≤ x) (ψ : W21)
+lemma bound_main {C : ℝ} (A : ℂ) (x : ℝ) (hx : 1 ≤ x) (ψ : ℝ → ℂ) (hψ : IsW21 ψ)
     (hcheby : chebyWith C f) :
-    ‖∑' n, f n / n * 𝓕 (ψ : ℝ → ℂ) (1 / (2 * π) * log (n / x)) -
-      A * ∫ u in Set.Ici (-log x), 𝓕 (ψ : ℝ → ℂ) (u / (2 * π))‖ ≤
+    ‖∑' n, f n / n * 𝓕 ψ (1 / (2 * π) * log (n / x)) -
+      A * ∫ u in Set.Ici (-log x), 𝓕 ψ (u / (2 * π))‖ ≤
       W21.norm ψ * (C * (1 + 2 * π ^ 2) + ‖A‖ * (2 * π ^ 2)) := by
 
-  have l1 := bound_I1' x hx ψ hcheby
-  have l2 := mul_le_mul (le_refl ‖A‖) (bound_I2 x ψ) (by positivity) (by positivity)
+  have l1 := bound_I1' x hx ψ hψ hcheby
+  have l2 := mul_le_mul (le_refl ‖A‖) (bound_I2 x ψ hψ) (by positivity) (by positivity)
   apply norm_sub_le _ _ |>.trans ; rw [norm_mul]
   convert _root_.add_le_add l1 l2 using 1 ; ring
 
@@ -1400,7 +1404,7 @@ lemma limiting_cor_W21 (ψ : W21) (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (n
 
   -- Control the tail term
   have key3 : ‖S x (ψ - Ψ R)‖ < ε / 2 := by
-    have : ‖S x _‖ ≤ _ * M := @bound_main f C A x hx (ψ - Ψ R) hcheby
+    have : ‖S x _‖ ≤ _ * M := @bound_main f C A x hx (ψ - Ψ R) (ψ.isW21.sub (Ψ R).isW21) hcheby
     apply this.trans_lt
     apply (mul_le_mul (d := 1 + M) le_rfl (by simp) (by positivity) W21.norm_nonneg).trans_lt
     have : 0 < 1 + M := by positivity
@@ -1420,18 +1424,18 @@ lemma limiting_cor_W21 (ψ : W21) (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (n
 
   have S1_sub : S1 x (ψ - Ψ R) = S1 x ψ - S1 x (Ψ R) := by
     simp only [one_div, mul_inv_rev, S1_sub_1, mul_sub, S1] ; apply Summable.tsum_sub
-    · have := summable_fourier x (by positivity) ψ ⟨_, hcheby⟩
+    · have := summable_fourier x (by positivity) ψ ψ.isW21 ⟨_, hcheby⟩
       rw [summable_norm_iff] at this
       simpa using this
-    · have := summable_fourier x (by positivity) (Ψ R) ⟨_, hcheby⟩
+    · have := summable_fourier x (by positivity) (Ψ R) (Ψ R).isW21 ⟨_, hcheby⟩
       rw [summable_norm_iff] at this
       simpa using! this
 
   have S2_sub : S2 x (ψ - Ψ R) = S2 x ψ - S2 x (Ψ R) := by
     simp only [S1_sub_1, S2] ; rw [integral_sub]
     · ring
-    · exact ψ.integrable_fourier (by positivity) |>.restrict
-    · exact (Ψ R : W21).integrable_fourier (by positivity) |>.restrict
+    · exact integrable_fourier ψ.isW21 (by positivity) |>.restrict
+    · exact integrable_fourier (Ψ R : W21).isW21 (by positivity) |>.restrict
 
   have S_sub : S x (ψ - Ψ R) = S x ψ - S x (Ψ R) := by simp [S, S1_sub, S2_sub] ; ring
   simpa [S_sub, Ψ] using norm_add_le _ _ |>.trans_lt (_root_.add_lt_add key3 key)
@@ -1439,8 +1443,8 @@ lemma limiting_cor_W21 (ψ : W21) (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (n
 lemma limiting_cor_schwartz (ψ : 𝓢(ℝ, ℂ)) (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ'))
     (hcheby : cheby f) (hG : ContinuousOn G {s | 1 ≤ s.re})
     (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1)) {s | 1 < s.re}) :
-    Tendsto (fun x : ℝ ↦ ∑' n, f n / n * 𝓕 (ψ : ℝ → ℂ) (1 / (2 * π) * log (n / x)) -
-      A * ∫ u in Set.Ici (-log x), 𝓕 (ψ : ℝ → ℂ) (u / (2 * π))) atTop (𝓝 0) :=
+    Tendsto (fun x : ℝ ↦ ∑' n, f n / n * 𝓕 ψ (1 / (2 * π) * log (n / x)) -
+      A * ∫ u in Set.Ici (-log x), 𝓕 ψ (u / (2 * π))) atTop (𝓝 0) :=
   limiting_cor_W21 ψ hf hcheby hG hG'
 
 -- just the surjectivity is stated here, as this is all that is needed for the current
