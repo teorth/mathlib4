@@ -2,7 +2,7 @@
 Copyright (c) 2026 The PrimeNumberTheoremAnd contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Vincent Beffara, Alex Kontorovich, Terence Tao, Ruben Van de Velde,
-  Arend Mellendijk, Alastair Irving, and the PrimeNumberTheoremAnd contributors
+  Arend Mellendijk, Alastair Irving
 -/
 module
 
