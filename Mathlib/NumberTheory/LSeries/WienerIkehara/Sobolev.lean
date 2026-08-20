@@ -69,12 +69,12 @@ lemma IsW21.sub {f g : ℝ → ℂ} (hf : IsW21 f) (hg : IsW21 g) : IsW21 (f - g
     have h1 : ContDiff ℝ k f := hf.smooth.of_le (by simp [hk])
     have h2 : ContDiff ℝ k g := hg.smooth.of_le (by simp [hk])
     have h3 : iteratedDeriv k (f - g) = iteratedDeriv k f - iteratedDeriv k g := by
-      ext x ; exact iteratedDeriv_sub h1.contDiffAt h2.contDiffAt
+      ext x; exact iteratedDeriv_sub h1.contDiffAt h2.contDiffAt
     simpa [h3] using (hf.integrable hk).sub (hg.integrable hk)
 
 lemma IsW21.of_hasCompactSupport {f : ℝ → ℂ} (h1 : ContDiff ℝ 2 f) (h2 : HasCompactSupport f) :
     IsW21 f := by
-  refine ⟨h1, fun k hk ↦ ?_⟩ ; match k with
+  refine ⟨h1, fun k hk ↦ ?_⟩; match k with
   | 0 => exact h1.continuous.integrable_of_hasCompactSupport h2
   | 1 => simpa using (h1.continuous_deriv one_le_two).integrable_of_hasCompactSupport h2.deriv
   | 2 => simpa [iteratedDeriv_succ] using
@@ -112,11 +112,11 @@ theorem W21_approximation {ψ : ℝ → ℂ} (hψ : IsW21 ψ) {g : ℝ → ℝ} 
   have dh' (R v : ℝ) : HasDerivAt (h' R) (h'' R v) v := by
     simpa [hh', hh'', Pi.neg_def] using ((dscale (deriv g) hg'd R v).mul_const R⁻¹).neg
   have ch {R} : Continuous (fun v ↦ (h R v : ℂ)) := by
-    simp only [hh] ; fun_prop
+    simp only [hh]; fun_prop
   have ch' {R} : Continuous (fun v ↦ (h' R v : ℂ)) := by
-    simp only [hh'] ; fun_prop
+    simp only [hh']; fun_prop
   have ch'' {R} : Continuous (fun v ↦ (h'' R v : ℂ)) := by
-    simp only [hh''] ; fun_prop
+    simp only [hh'']; fun_prop
   have hh1 (R v : ℝ) : |h R v| ≤ 1 := by
     rw [abs_le]
     constructor <;> [linarith [hg1 (R⁻¹ * v)]; linarith [hgnn (R⁻¹ * v)]]
@@ -136,7 +136,7 @@ theorem W21_approximation {ψ : ℝ → ℂ} (hψ : IsW21 ψ) {g : ℝ → ℝ} 
     filter_upwards [(vR v).eventually evg''] with R hR
     simp [hh'', show deriv (deriv g) (R⁻¹ * v) = 0 from hR]
   convert_to Tendsto (fun R ↦ W21.norm (fun v ↦ (h R v : ℂ) * ψ v)) atTop (𝓝 0)
-  · ext R ; congr ; ext v ; simp [hh, sub_mul]
+  · ext R; congr; ext v; simp [hh, sub_mul]
   rw [show (0 : ℝ) = 0 + ((4 * π ^ 2)⁻¹ : ℝ) * 0 by simp]
   refine Tendsto.add ?_ (Tendsto.const_mul _ ?_)
   · let F R v := ‖(h R v : ℂ) * ψ v‖
@@ -147,7 +147,7 @@ theorem W21_approximation {ψ : ℝ → ℂ} (hψ : IsW21 ψ) {g : ℝ → ℝ} 
       simpa [F] using mul_le_mul (hh1 R v) le_rfl (by simp) zero_le_one
     have e4 : ∀ᵐ (a : ℝ), Tendsto (fun n ↦ F n a) atTop (𝓝 0) := by
       refine .of_forall fun v ↦ tendsto_nhds_of_eventually_eq ?_
-      filter_upwards [eh v] with R hR ; simp [F, hR]
+      filter_upwards [eh v] with R hR; simp [F, hR]
     simpa [F] using tendsto_integral_filter_of_dominated_convergence _ e1 e2 hψ.hf.norm e4
   · let F R v := ‖(h'' R v : ℂ) * ψ v + 2 * (h' R v : ℂ) * deriv ψ v +
       (h R v : ℂ) * deriv (deriv ψ) v‖
@@ -165,7 +165,7 @@ theorem W21_approximation {ψ : ℝ → ℂ} (hψ : IsW21 ψ) {g : ℝ → ℝ} 
             ((h' R v : ℂ) * deriv ψ v + (h R v : ℂ) * deriv (deriv ψ) v) v :=
           (dh R v).ofReal_comp.mul (hψ'd v).hasDerivAt
         rw [funext fun v ↦ (l3 v).deriv]
-        convert! (l5.add l7).deriv using 1 ; ring
+        convert! (l5.add l7).deriv using 1; ring
       simp_rw [key, F]
     obtain ⟨c1, mg'⟩ : ∃ C, ∀ v, ‖deriv g v‖ ≤ C := by
       obtain ⟨x, hx⟩ := (continuous_norm.comp hg'c).exists_forall_ge_of_hasCompactSupport hg's.norm
