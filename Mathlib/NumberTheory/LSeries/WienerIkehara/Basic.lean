@@ -158,9 +158,6 @@ lemma first_fourier (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ'))
         rw [norm_term_eq_nterm_re]
         simp
 
-@[continuity]
-lemma continuous_multiplicative_ofAdd : Continuous (⇑Multiplicative.ofAdd : ℝ → ℝ) := ⟨fun _ ↦ id⟩
-
 attribute [fun_prop] measurable_coe_nnreal_ennreal
 
 lemma second_fourier_integrable_aux1a (hσ : 1 < σ') :
@@ -257,11 +254,9 @@ lemma second_fourier (hcont : Measurable ψ) (hsupp : Integrable ψ)
     integral_Ioi_of_hasDerivAt_of_tendsto' hderiv (second_fourier_integrable_aux2 hσ) hf]
   simpa [f, f'] using second_fourier_aux hx
 
-lemma one_add_sq_pos (u : ℝ) : 0 < 1 + u ^ 2 := zero_lt_one.trans_le (by simpa using sq_nonneg u)
-
 lemma decay_bounds_key (ψ : ℝ → ℂ) (hψ : IsW21 ψ) (u : ℝ) :
     ‖𝓕 ψ u‖ ≤ W21.norm ψ * (1 + u ^ 2)⁻¹ := by
-  rw [← div_eq_mul_inv, le_div_iff₀ (one_add_sq_pos u), mul_comm]
+  rw [← div_eq_mul_inv, le_div_iff₀ (by positivity : (0:ℝ) < 1 + u ^ 2), mul_comm]
   simpa [W21.norm, iteratedDeriv_succ, iteratedDeriv_zero] using
     Real.one_add_sq_mul_norm_fourier_le hψ.smooth (fun _ hk ↦ hψ.integrable hk) u
 
@@ -347,11 +342,8 @@ lemma limiting_fourier_aux (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1
 
 
 @[local gcongr]
-theorem norm_lt_norm_of_nonneg (x y : ℝ) (hx : 0 ≤ x) (hxy : x ≤ y) :
-    ‖x‖ ≤ ‖y‖ := by
-  simp_rw [Real.norm_eq_abs]
-  apply abs_le_abs hxy
-  linarith
+theorem norm_le_norm_of_nonneg (x y : ℝ) (hx : 0 ≤ x) (hxy : x ≤ y) : ‖x‖ ≤ ‖y‖ := by
+  simp_rw [Real.norm_eq_abs] ; exact abs_le_abs hxy (by linarith)
 
 def chebyWith (C : ℝ) (f : ℕ → ℂ) : Prop :=
   ∀ n, ∑ i ∈ Finset.range n, ‖f i‖ ≤ C * n
@@ -417,18 +409,10 @@ lemma gg_le_one (i : ℕ) : gg x i ≤ 1 := by
   rw [← mul_inv] ; apply inv_le_one_of_one_le₀ ; simpa using mul_le_mul l1 l2 zero_le_one (by simp)
 
 lemma one_div_two_pi_mem_Ioo : 1 / (2 * π) ∈ Ioo (-1) 1 := by
-  constructor
-  · trans 0
-    · linarith
-    · positivity
-  · rw [div_lt_iff₀ (by positivity)]
-    convert_to! 1 * 1 < 2 * π
-    · simp
-    · simp
-    apply mul_lt_mul one_lt_two ?_ zero_lt_one zero_le_two
-    trans 2
-    · exact one_le_two
-    · exact two_le_pi
+  have h1 : (0:ℝ) < 1 / (2 * π) := by positivity
+  have h2 := two_le_pi
+  refine ⟨by linarith, ?_⟩
+  rw [div_lt_one (by positivity)] ; linarith
 
 /-- If the partial sums of `f` grow at most linearly, then so do the sums weighted by a
 nonnegative antitone `g`, measured against `∑ g`. -/
@@ -1209,7 +1193,7 @@ lemma wiener_ikehara_smooth' (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm 
 local instance {E : Type*} : Coe (E → ℝ) (E → ℂ) := ⟨fun f n => f n⟩
 
 @[norm_cast]
-theorem set_integral_ofReal {f : ℝ → ℝ} {s : Set ℝ} : ∫ x in s, (f x : ℂ) = ∫ x in s, f x :=
+theorem setIntegral_ofReal {f : ℝ → ℝ} {s : Set ℝ} : ∫ x in s, (f x : ℂ) = ∫ x in s, f x :=
   integral_ofReal
 
 lemma wiener_ikehara_smooth_real {f : ℕ → ℝ} {Ψ : ℝ → ℝ}
@@ -1456,14 +1440,8 @@ lemma WienerIkeharaInterval {f : ℕ → ℝ} (hpos : 0 ≤ f) (hf : ∀ (σ' : 
   have : liminf (S Iab) atTop ≤ limsup (S Iab) atTop := liminf_le_limsup Iab2 Iab3
   refine tendsto_of_liminf_eq_limsup ?_ ?_ Iab2 Iab3 <;> linarith
 
-lemma lt_ceil_mul_iff (hx : 0 < x) : n < ⌈b * x⌉₊ ↔ n / x < b := by
-  rw [div_lt_iff₀ hx, Nat.lt_ceil]
-
-lemma ceil_mul_le_iff (hx : 0 < x) : ⌈a * x⌉₊ ≤ n ↔ a ≤ n / x := by
-  rw [le_div_iff₀ hx, Nat.ceil_le]
-
 lemma mem_Ico_iff_div (hx : 0 < x) : n ∈ Finset.Ico ⌈a * x⌉₊ ⌈b * x⌉₊ ↔ n / x ∈ Ico a b := by
-  rw [Finset.mem_Ico, mem_Ico, ceil_mul_le_iff hx, lt_ceil_mul_iff hx]
+  rw [Finset.mem_Ico, mem_Ico, Nat.ceil_le, Nat.lt_ceil, le_div_iff₀ hx, div_lt_iff₀ hx]
 
 lemma tsum_indicator {f : ℕ → ℝ} (hx : 0 < x) :
     ∑' n, f n * (indicator (Ico a b) 1 (n / x)) = ∑ n ∈ Finset.Ico ⌈a * x⌉₊ ⌈b * x⌉₊, f n := by
