@@ -866,7 +866,7 @@ lemma limiting_cor (ψ : ℝ → ℂ) (hψ1 : ContDiff ℝ 2 ψ) (hψ2 : HasComp
 /-- A smooth Urysohn lemma on the real line: for `a < b` and `c < d` there is a smooth compactly
 supported function squeezed between the indicators of `Icc b c` and `Ioo a d`, whose support is
 exactly `Ioo a d`.  This specializes `exists_contMDiff_support_eq_eq_one_iff`. -/
-lemma smooth_urysohn_support_Ioo {a b c d : ℝ} (h1 : a < b) (h3 : c < d) :
+lemma exists_contDiff_one_on_Icc_support_eq_Ioo {a b c d : ℝ} (h1 : a < b) (h3 : c < d) :
     ∃ Ψ : ℝ → ℝ, (ContDiff ℝ ∞ Ψ) ∧ (HasCompactSupport Ψ) ∧
       indicator (Icc b c) 1 ≤ Ψ ∧ Ψ ≤ indicator (Ioo a d) 1 ∧ Function.support Ψ = Ioo a d := by
   obtain ⟨Ψ, hsmooth, hrange, hsupp, hone⟩ :=
@@ -881,12 +881,6 @@ lemma smooth_urysohn_support_Ioo {a b c d : ℝ} (h1 : a < b) (h3 : c < d) :
   · have hx' : x ∉ Function.support Ψ := hsupp ▸ hx
     simp only [Function.mem_support, not_not] at hx'
     exact hx'.le
-
-lemma smooth_urysohn (a b c d : ℝ) (h1 : a < b) (h3 : c < d) : ∃ Ψ : ℝ → ℝ,
-    (ContDiff ℝ ∞ Ψ) ∧ (HasCompactSupport Ψ) ∧
-      indicator (Icc b c) 1 ≤ Ψ ∧ Ψ ≤ indicator (Ioo a d) 1 := by
-  obtain ⟨ψ, l1, l2, l3, l4, -⟩ := smooth_urysohn_support_Ioo h1 h3
-  exact ⟨ψ, l1, l2, l3, l4⟩
 
 variable (f x) in
 lemma summable_fourier_aux (ψ : ℝ → ℂ) (hψ : IsW21 ψ) (i : ℕ) :
@@ -978,7 +972,8 @@ lemma limiting_cor_W21 (ψ : ℝ → ℂ) (hψ : IsW21 ψ) (hf : ∀ (σ' : ℝ)
   let S x ψ := S1 x ψ - S2 x ψ ; change Tendsto (fun x ↦ S x ψ) atTop (𝓝 0)
 
   -- Build the truncation
-  obtain ⟨g, hgsmooth, hgs, hg3, hg4⟩ := smooth_urysohn (-2) (-1) 1 2 (by linarith) (by linarith)
+  obtain ⟨g, hgsmooth, hgs, hg3, hg4, -⟩ := exists_contDiff_one_on_Icc_support_eq_Ioo
+    (a := -2) (b := -1) (c := 1) (d := 2) (by norm_num) (by norm_num)
   have hg : ContDiff ℝ 2 g := hgsmooth.of_le (by simp)
   have hgnn (v : ℝ) : 0 ≤ g v := (Set.indicator_nonneg (by simp) v).trans (hg3 v)
   have hg1 (v : ℝ) : g v ≤ 1 := (hg4 v).trans <| Set.indicator_le_self' (by simp) v
@@ -1244,7 +1239,7 @@ lemma interval_approx_inf (ha : 0 < a) (hab : a < b) :
   filter_upwards [self_mem_nhdsWithin, l1] with ε (hε : 0 < ε) (hε' : ε < (b - a) / 3)
   have l2 : a < a + ε / 2 := by simp [hε]
   have l3 : b - ε / 2 < b := by simp [hε]
-  obtain ⟨ψ, h1, h2, h3, h4, h5⟩ := smooth_urysohn_support_Ioo l2 l3
+  obtain ⟨ψ, h1, h2, h3, h4, h5⟩ := exists_contDiff_one_on_Icc_support_eq_Ioo l2 l3
   refine ⟨ψ, h1, h2, ?_, ?_, ?_⟩
   · simp [h5, hab.ne, Icc_subset_Ioi_iff hab.le, ha]
   · exact h4.trans <| indicator_le_indicator_of_subset Ioo_subset_Ico_self (by simp)
@@ -1276,7 +1271,7 @@ lemma interval_approx_sup (ha : 0 < a) (hab : a < b) :
   filter_upwards [self_mem_nhdsWithin, l1] with ε (hε : 0 < ε) (hε' : ε < a / 2)
   have l2 : a - ε / 2 < a := by linarith
   have l3 : b < b + ε / 2 := by linarith
-  obtain ⟨ψ, h1, h2, h3, h4, h5⟩ := smooth_urysohn_support_Ioo l2 l3
+  obtain ⟨ψ, h1, h2, h3, h4, h5⟩ := exists_contDiff_one_on_Icc_support_eq_Ioo l2 l3
   refine ⟨ψ, h1, h2, ?_, ?_, ?_⟩
   · have l4 : a - ε / 2 < b + ε / 2 := by linarith
     have l5 : ε / 2 < a := by linarith
