@@ -419,10 +419,9 @@ theorem sum_mul_le_of_sum_range_le {C : ℝ} {f g : ℕ → ℝ}
     have e1 : ∀ i ∈ Finset.range n, f i * g i = f i * max 0 (g i - g n) + f i * g n := by grind
     have : (∑ i ∈ Finset.range n, f i) * g n + f n * g n ≤ C * (n + 1) * g n := by
       have h1 := hf (n + 1)
-      rw [Finset.sum_range_succ] at h1
       push_cast at h1
-      specialize hg n
-      grw [← h1]
+      have : 0 ≤ g n := hg n
+      grw [← h1, Finset.sum_range_succ]
       grind
     rw [Finset.sum_range_succ (fun i ↦ f i * g i) n, Finset.sum_congr rfl e1,
       Finset.sum_add_distrib, ← Finset.sum_mul, Finset.sum_range_succ g n]
@@ -434,8 +433,7 @@ theorem sum_mul_le_of_sum_range_le {C : ℝ} {f g : ℕ → ℝ}
 lemma hh_div_eq (hc : 0 < c) {t : ℝ} (ht : 0 < t) :
     a * hh b (t / c) = t⁻¹ • (a * c * (1 + (b * (log t - log c)) ^ 2)⁻¹) := by
   have : (0:ℝ) < 1 + (b * (log t - log c)) ^ 2 := by positivity
-  simp only [hh, log_div ht.ne' hc.ne', smul_eq_mul, mul_inv]
-  field_simp
+  simp [hh, log_div ht.ne' hc.ne', field]
 
 lemma hh_integrable (hb : 0 < b) (hc : 0 < c) :
     IntegrableOn (fun t ↦ a * hh b (t / c)) (Ici 0) := by
