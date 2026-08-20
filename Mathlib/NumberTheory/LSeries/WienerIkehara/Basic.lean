@@ -348,12 +348,6 @@ def cheby (f : ℕ → ℂ) : Prop := ∃ C, chebyWith C f
 
 noncomputable def pp (a x : ℝ) : ℝ := a ^ 2 * (x + 1) ^ 2 + (1 - a) * (1 + a)
 
-lemma pp_pos {a : ℝ} (ha : a ∈ Ioo (-1) 1) (x : ℝ) : 0 < pp a x := by
-  simp only [pp]
-  have : 0 < 1 - a := by linarith [ha.2]
-  have : 0 < 1 + a := by linarith [ha.1]
-  positivity
-
 noncomputable def hh (a t : ℝ) : ℝ := (t * (1 + (a * log t) ^ 2))⁻¹
 
 noncomputable def hh' (a t : ℝ) : ℝ := - pp a (log t) * hh a t ^ 2
@@ -373,11 +367,12 @@ lemma hh_deriv (a : ℝ) {t : ℝ} (ht : t ≠ 0) : HasDerivAt (hh a) (hh' a t) 
     convert! (hasDerivAt_id' t).mul l2 using 1; field_simp; ring
   convert! l1.inv e1 using 1; simp only [hh', pp, hh]; field_simp; ring
 
-lemma hh_continuous (a : ℝ) : ContinuousOn (hh a) (Ioi 0) :=
-  fun t (ht : 0 < t) => (hh_deriv a ht.ne.symm).continuousAt.continuousWithinAt
-
 lemma hh'_nonpos {a x : ℝ} (ha : a ∈ Ioo (-1) 1) : hh' a x ≤ 0 := by
-  have := pp_pos ha (log x)
+  have : 0 < pp a (log x) := by
+    simp only [pp]
+    have : 0 < 1 - a := by linarith [ha.2]
+    have : 0 < 1 + a := by linarith [ha.1]
+    positivity
   simp only [hh', neg_mul, Left.neg_nonpos_iff, ge_iff_le]
   positivity
 
@@ -386,7 +381,8 @@ lemma hh_antitone {a : ℝ} (ha : a ∈ Ioo (-1) 1) : AntitoneOn (hh a) (Ioi 0) 
       HasDerivWithinAt (hh a) (hh' a x) (interior (Ioi 0)) x := by
     have : x ≠ 0 := by contrapose! hx ; simp [hx]
     exact (hh_deriv a this).hasDerivWithinAt
-  apply antitoneOn_of_hasDerivWithinAt_nonpos (convex_Ioi _) (hh_continuous _) l1
+  apply antitoneOn_of_hasDerivWithinAt_nonpos (convex_Ioi _)
+    (fun t (ht : 0 < t) ↦ (hh_deriv _ ht.ne.symm).continuousAt.continuousWithinAt) l1
     (fun x _ => hh'_nonpos ha)
 
 noncomputable def gg (x i : ℝ) : ℝ := 1 / i * (1 + (1 / (2 * π) * log (i / x)) ^ 2)⁻¹
@@ -946,21 +942,11 @@ lemma comp_exp_support0 {Ψ : ℝ → ℂ} (hplus : closure (Function.support Ψ
     ∀ᶠ x in 𝓝 0, Ψ x = 0 :=
   notMem_tsupport_iff_eventuallyEq.mp (fun h => lt_irrefl 0 <| mem_Ioi.mp (hplus h))
 
-lemma comp_exp_support1 {Ψ : ℝ → ℂ} (hplus : closure (Function.support Ψ) ⊆ Ioi 0) :
-    ∀ᶠ x in atBot, Ψ (exp x) = 0 :=
-  Real.tendsto_exp_atBot <| comp_exp_support0 hplus
-
-lemma comp_exp_support2 {Ψ : ℝ → ℂ} (hsupp : HasCompactSupport Ψ) :
-    ∀ᶠ (x : ℝ) in atTop, (Ψ ∘ rexp) x = 0 := by
-  simp only [hasCompactSupport_iff_eventuallyEq, coclosedCompact_eq_cocompact,
-    cocompact_eq_atBot_atTop] at hsupp
-  exact Real.tendsto_exp_atTop hsupp.2
-
 theorem comp_exp_support {Ψ : ℝ → ℂ} (hsupp : HasCompactSupport Ψ)
     (hplus : closure (Function.support Ψ) ⊆ Ioi 0) : HasCompactSupport (Ψ ∘ rexp) := by
   simp only [hasCompactSupport_iff_eventuallyEq, coclosedCompact_eq_cocompact,
-    cocompact_eq_atBot_atTop]
-  exact ⟨comp_exp_support1 hplus, comp_exp_support2 hsupp⟩
+    cocompact_eq_atBot_atTop] at hsupp ⊢
+  exact ⟨Real.tendsto_exp_atBot <| comp_exp_support0 hplus, Real.tendsto_exp_atTop hsupp.2⟩
 
 set_option backward.isDefEq.respectTransparency false in
 lemma wiener_ikehara_smooth_aux (l0 : Continuous Ψ) (hsupp : HasCompactSupport Ψ)
