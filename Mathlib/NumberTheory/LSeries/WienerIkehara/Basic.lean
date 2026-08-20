@@ -481,8 +481,8 @@ lemma bound_sum_log_range {C : ℝ} (hf : chebyWith C f) {x : ℝ} (hx : 1 ≤ x
     apply hh_antitone one_div_two_pi_mem_Ioo (by simp only [mem_Ioi]; positivity)
       (by simp only [mem_Ioi]; positivity)
     apply (div_le_div_iff_of_pos_right (by positivity)).mpr huv
-  have l6 {n : ℕ} : IntegrableOn (fun t ↦ x⁻¹ * hh (π⁻¹ * 2⁻¹) (t / x)) (Icc 0 n) volume := .mono_set
-      (hh_integrable (by positivity) (by positivity)) Icc_subset_Ici_self
+  have l6 {n : ℕ} : IntegrableOn (fun t ↦ x⁻¹ * hh (π⁻¹ * 2⁻¹) (t / x)) (Icc 0 n) volume :=
+    .mono_set (hh_integrable (by positivity) (by positivity)) Icc_subset_Ici_self
   refine (Finset.sum_le_sum (g := fun i ↦ ‖f i‖ * ggg i) (fun i _ ↦ ?_)).trans ?_
   · by_cases hi : i = 0 <;> simp [gg, hi, ggg, field]
   apply sum_mul_le_of_sum_range_le hf l1 l2 n |>.trans
@@ -1017,7 +1017,8 @@ lemma wiener_ikehara_smooth (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f
     rw [MeasureTheory.integral_Ici_eq_integral_Ioi]
     exact wiener_ikehara_smooth_aux hsmooth.continuous hsupp hplus x hx
   have l4 : Tendsto (fun x => (↑A * ∫ (y : ℝ) in Ioi x⁻¹, Ψ y) - ↑A * ∫ (y : ℝ) in Ioi 0, Ψ y)
-      atTop (𝓝 0) := wiener_ikehara_smooth_sub (hsmooth.continuous.integrable_of_hasCompactSupport hsupp) hplus
+      atTop (𝓝 0) :=
+    wiener_ikehara_smooth_sub (hsmooth.continuous.integrable_of_hasCompactSupport hsupp) hplus
   simpa [tsum_div_const] using (key.congr' <| EventuallyEq.sub l2 l3) |>.add l4
 
 lemma wiener_ikehara_smooth' (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ')) (hcheby : cheby f)
