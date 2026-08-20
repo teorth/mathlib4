@@ -345,25 +345,6 @@ lemma limiting_fourier_aux (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1
   norm_cast
   simp [mul_assoc, ← rpow_add l3]
 
-section cumsum
-
-variable {E : Type*}
-
-def cumsum [AddCommMonoid E] (u : ℕ → E) (n : ℕ) : E := ∑ i ∈ Finset.range n, u i
-
-@[simp] lemma cumsum_zero [AddCommMonoid E] {u : ℕ → E} : cumsum u 0 = 0 := by simp [cumsum]
-
-lemma cumsum_succ [AddCommMonoid E] {u : ℕ → E} (n : ℕ) :
-    cumsum u (n + 1) = cumsum u n + u n := by
-  simp [cumsum, Finset.sum_range_succ]
-
-lemma neg_cumsum [AddCommGroup E] {u : ℕ → E} : -(cumsum u) = cumsum (-u) :=
-  funext (fun n => by simp [cumsum])
-
-lemma cumsum_nonneg {u : ℕ → ℝ} (hu : 0 ≤ u) : 0 ≤ cumsum u :=
-  fun _ => Finset.sum_nonneg (fun i _ => hu i)
-
-end cumsum
 
 @[local gcongr]
 theorem norm_lt_norm_of_nonneg (x y : ℝ) (hx : 0 ≤ x) (hxy : x ≤ y) :
@@ -372,7 +353,8 @@ theorem norm_lt_norm_of_nonneg (x y : ℝ) (hx : 0 ≤ x) (hxy : x ≤ y) :
   apply abs_le_abs hxy
   linarith
 
-def chebyWith (C : ℝ) (f : ℕ → ℂ) : Prop := ∀ n, cumsum (‖f ·‖) n ≤ C * n
+def chebyWith (C : ℝ) (f : ℕ → ℂ) : Prop :=
+  ∀ n, ∑ i ∈ Finset.range n, ‖f i‖ ≤ C * n
 
 def cheby (f : ℕ → ℂ) : Prop := ∃ C, chebyWith C f
 
@@ -449,7 +431,7 @@ lemma one_div_two_pi_mem_Ioo : 1 / (2 * π) ∈ Ioo (-1) 1 := by
     · exact two_le_pi
 
 lemma cancel_aux {C : ℝ} {f g : ℕ → ℝ} (hf : 0 ≤ f) (hg : 0 ≤ g)
-    (hf' : ∀ n, cumsum f n ≤ C * n) (hg' : Antitone g) (n : ℕ) :
+    (hf' : ∀ n, ∑ i ∈ Finset.range n, f i ≤ C * n) (hg' : Antitone g) (n : ℕ) :
     ∑ i ∈ Finset.range n, f i * g i ≤ g (n - 1) * (C * n) + (C * (↑(n - 1 - 1) + 1) * g 0
       - C * (↑(n - 1 - 1) + 1) * g (n - 1) -
     ((n - 1 - 1) • (C * g 0) - ∑ x ∈ Finset.range (n - 1 - 1), C * g (x + 1))) := by
@@ -459,7 +441,7 @@ lemma cancel_aux {C : ℝ} {f g : ℕ → ℝ} (hf : 0 ≤ f) (hg : 0 ≤ g)
     apply mul_le_mul le_rfl (by simpa using! hf' (n + 1)) (Finset.sum_nonneg' hf) ?_
     simp only [sub_nonneg] ; apply hg' ; simp
   have l2 (x : ℕ) : C * (↑(x + 1) + 1) - C * (↑x + 1) = C := by simp ; ring
-  have l3 (n : ℕ) : 0 ≤ cumsum f n := Finset.sum_nonneg' hf
+  have l3 (n : ℕ) : 0 ≤ ∑ i ∈ Finset.range n, f i := Finset.sum_nonneg' hf
 
   convert_to ∑ i ∈ Finset.range n, (g i) • (f i) ≤ _
   · simp [mul_comm]
@@ -482,25 +464,25 @@ lemma sum_range_succ (a : ℕ → ℝ) (n : ℕ) :
   rw [Finset.sum_range_succ, this] ; ring
 
 lemma cancel_aux' {C : ℝ} {f g : ℕ → ℝ} (hf : 0 ≤ f) (hg : 0 ≤ g)
-    (hf' : ∀ n, cumsum f n ≤ C * n) (hg' : Antitone g) (n : ℕ) :
+    (hf' : ∀ n, ∑ i ∈ Finset.range n, f i ≤ C * n) (hg' : Antitone g) (n : ℕ) :
     ∑ i ∈ Finset.range n, f i * g i ≤
         C * n * g (n - 1)
-      + C * cumsum g (n - 1 - 1 + 1)
+      + C * ∑ i ∈ Finset.range (n - 1 - 1 + 1), g i
       - C * (↑(n - 1 - 1) + 1) * g (n - 1)
       := by
   have := cancel_aux hf hg hf' hg' n
   simp only [nsmul_eq_mul, ← Finset.mul_sum, sum_range_succ] at this
-  convert this using 1 ; unfold cumsum ; ring
+  convert this using 1 ; ring
 
 lemma cancel_main' {C : ℝ} {f g : ℕ → ℝ} (hf : 0 ≤ f) (hf0 : f 0 = 0) (hg : 0 ≤ g)
-    (hf' : ∀ n, cumsum f n ≤ C * n) (hg' : Antitone g) (n : ℕ) :
-    cumsum (f * g) n ≤ C * cumsum g n := by
+    (hf' : ∀ n, ∑ i ∈ Finset.range n, f i ≤ C * n) (hg' : Antitone g) (n : ℕ) :
+    ∑ i ∈ Finset.range n, (f * g) i ≤ C * ∑ i ∈ Finset.range n, g i := by
   match n with
-  | 0 => simp [cumsum]
-  | 1 => specialize hg 0 ; specialize hf' 1 ; simp only [cumsum, Finset.range_one,
+  | 0 => simp
+  | 1 => specialize hg 0 ; specialize hf' 1 ; simp only [Finset.range_one,
     Finset.sum_singleton, hf0, Nat.cast_one, mul_one, Pi.zero_apply, Pi.mul_apply, zero_mul,
     ge_iff_le] at hf' hg ⊢ ; positivity
-  | n + 2 => convert! cancel_aux' hf hg hf' hg' (n + 2) using 1 ; simp [cumsum_succ] ; ring
+  | n + 2 => convert! cancel_aux' hf hg hf' hg' (n + 2) using 1 ; simp [Finset.sum_range_succ] ; ring
 
 lemma hh_integrable_aux (ha : 0 < a) (hb : 0 < b) (hc : 0 < c) :
     (IntegrableOn (fun t ↦ a * hh b (t / c)) (Ici 0)) ∧
@@ -614,7 +596,7 @@ lemma bound_sum_log_range {C : ℝ} (hf0 : f 0 = 0) (hf : chebyWith C f) {x : �
       · simp only [mem_Ioi] ; positivity
       · simp only [mem_Ioi] ; positivity
       · gcongr
-  have l3 : 0 ≤ C := by simpa [cumsum, hf0] using hf 1
+  have l3 : 0 ≤ C := by simpa [hf0] using hf 1
 
   have l4 : 0 ≤ ∫ (t : ℝ) in Ioi 0, hh (π⁻¹ * 2⁻¹) t :=
     setIntegral_nonneg measurableSet_Ioi (fun x hx => hh_nonneg _ (LT.lt.le hx))
@@ -639,7 +621,7 @@ lemma bound_sum_log_range {C : ℝ} (hf0 : f 0 = 0) (hf : chebyWith C f) {x : �
       field_simp
 
   apply cancel_main' (fun _ => norm_nonneg _) (by simp [hf0]) l1 hf l2 n |>.trans
-  gcongr ; simp only [cumsum, gg_of_hh l0, one_div, mul_inv_rev, ggg]
+  gcongr ; simp only [gg_of_hh l0, one_div, mul_inv_rev, ggg]
 
   by_cases hn : n = 0
   · simp only [hn, Finset.range_zero, Finset.sum_empty] ; positivity
@@ -1065,7 +1047,7 @@ lemma limiting_cor_W21 (ψ : ℝ → ℂ) (hψ : IsW21 ψ) (hf : ∀ (σ' : ℝ)
   -- Choose the truncation radius
   obtain ⟨C, hcheby⟩ := hcheby
   have hC : 0 ≤ C := by
-    have h1 : ‖f 0‖ ≤ C := by simpa [cumsum] using hcheby 1
+    have h1 : ‖f 0‖ ≤ C := by simpa using hcheby 1
     have h2 : 0 ≤ ‖f 0‖ := by positivity
     linarith
   have key2 : Tendsto (fun R ↦ W21.norm (ψ - Ψ R)) atTop (𝓝 0) :=
@@ -1394,7 +1376,7 @@ lemma WI_sum_Iab_le {f : ℕ → ℝ} (hpos : 0 ≤ f) {C : ℝ} (hcheby : cheby
   rw [tsum_eq_sum l1, div_le_iff₀ hx, mul_assoc, mul_assoc]
   apply Finset.sum_le_sum l2 |>.trans
   have := hcheby ⌈b * x⌉₊ ; simp only [norm_real, norm_eq_abs] at this ; apply this.trans
-  have : 0 ≤ C := by have := hcheby 1 ; simp only [cumsum, Finset.range_one, norm_real,
+  have : 0 ≤ C := by have := hcheby 1 ; simp only [Finset.range_one, norm_real,
     Finset.sum_singleton, Nat.cast_one, mul_one] at this ; exact (abs_nonneg _).trans this
   refine mul_le_mul_of_nonneg_left ?_ this
   apply (Nat.ceil_lt_add_one (by positivity)).le.trans
@@ -1578,7 +1560,7 @@ lemma tendsto_mul_ceil_div :
 
 noncomputable def S (f : ℕ → 𝕜) (ε : ℝ) (N : ℕ) : 𝕜 := (∑ n ∈ Finset.Ico ⌈ε * N⌉₊ N, f n) / N
 
-lemma S_sub_S {f : ℕ → 𝕜} {ε : ℝ} {N : ℕ} (hε : ε ≤ 1) : S f 0 N - S f ε N = cumsum f ⌈ε * N⌉₊ / N := by
+lemma S_sub_S {f : ℕ → 𝕜} {ε : ℝ} {N : ℕ} (hε : ε ≤ 1) : S f 0 N - S f ε N = (∑ i ∈ Finset.range ⌈ε * N⌉₊, f i) / N := by
   have hceilN : ⌈ε * N⌉₊ ≤ N := by
     simp only [Nat.ceil_le]
     exact mul_le_of_le_one_left N.cast_nonneg hε
@@ -1588,7 +1570,7 @@ lemma S_sub_S {f : ℕ → 𝕜} {ε : ℝ} {N : ℕ} (hε : ε ≤ 1) : S f 0 N
     omega
   have r2 : Disjoint (Finset.range ⌈ε * N⌉₊) (Finset.Ico ⌈ε * N⌉₊ N) := by
     rw [Finset.range_eq_Ico] ; apply Finset.Ico_disjoint_Ico_consecutive
-  simp [S, r1, Finset.sum_union r2, cumsum, add_div]
+  simp [S, r1, Finset.sum_union r2, add_div]
 
 lemma tendsto_S_S_zero {f : ℕ → ℝ} (hpos : 0 ≤ f) (hcheby : cheby f) :
     TendstoUniformlyOnFilter (S f) (S f 0) (𝓝[>] 0) atTop := by
@@ -1599,9 +1581,9 @@ lemma tendsto_S_S_zero {f : ℕ → ℝ} (hpos : 0 ≤ f) (hcheby : cheby f) :
     simp only [mul_div_assoc', mul_zero] at r1 ; exact r1 (Iio_mem_nhds hδ)
   have : Ioc 0 1 ∈ 𝓝[>] (0 : ℝ) := inter_mem_nhdsWithin _ (Iic_mem_nhds zero_lt_one)
   filter_upwards [l1, Eventually.prod_inl this _] with (ε, N) h1 h2
-  have l2 : ‖cumsum f ⌈ε * ↑N⌉₊ / ↑N‖ ≤ C * ⌈ε * N⌉₊ / N := by
+  have l2 : ‖(∑ i ∈ Finset.range ⌈ε * ↑N⌉₊, f i) / ↑N‖ ≤ C * ⌈ε * N⌉₊ / N := by
     have r1 := hC ⌈ε * N⌉₊
-    have r2 : 0 ≤ cumsum f ⌈ε * N⌉₊ := by apply cumsum_nonneg hpos
+    have r2 : 0 ≤ ∑ i ∈ Finset.range ⌈ε * N⌉₊, f i := Finset.sum_nonneg (fun i _ ↦ hpos i)
     simp only [norm_real, norm_of_nonneg (hpos _), norm_div,
       norm_of_nonneg r2, Real.norm_natCast] at r1 ⊢
     apply div_le_div_of_nonneg_right r1 (by positivity)
@@ -1611,9 +1593,9 @@ theorem WienerIkeharaTheorem' {f : ℕ → ℝ} (hpos : 0 ≤ f)
     (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ'))
     (hcheby : cheby f) (hG : ContinuousOn G {s | 1 ≤ s.re})
     (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1)) {s | 1 < s.re}) :
-    Tendsto (fun N => cumsum f N / N) atTop (𝓝 A) := by
+    Tendsto (fun N => (∑ i ∈ Finset.range N, f i) / N) atTop (𝓝 A) := by
 
-  convert_to Tendsto (S f 0) atTop (𝓝 A) ; · ext N ; simp [S, cumsum]
+  convert_to Tendsto (S f 0) atTop (𝓝 A) ; · ext N ; simp [S]
   apply (tendsto_S_S_zero hpos hcheby).tendsto_of_eventually_tendsto
   · have L0 : Ioc 0 1 ∈ 𝓝[>] (0 : ℝ) := inter_mem_nhdsWithin _ (Iic_mem_nhds zero_lt_one)
     apply eventually_of_mem L0
@@ -1626,8 +1608,8 @@ theorem vonMangoldt_cheby : cheby Λ := by
   use Real.log 4 + 4
   intro N
   by_cases! h : N = 0
-  · simp [h, cumsum]
-  simp only [cumsum, norm_real, norm_eq_abs]
+  · simp [h]
+  simp only [norm_real, norm_eq_abs]
   rw [Nat.range_eq_Icc_zero_sub_one _ h, (by simp : N - 1 = ⌊(N : ℝ) - 1⌋₊)]
   simp_rw [abs_of_nonneg vonMangoldt_nonneg]
   rw [← Chebyshev.psi_eq_sum_Icc]
@@ -1639,7 +1621,7 @@ theorem vonMangoldt_cheby : cheby Λ := by
 -- version of the Wiener-Ikehara theorem proved above (with the `cheby`
 -- hypothesis)
 
-theorem WeakPNT : Tendsto (fun N ↦ cumsum Λ N / N) atTop (𝓝 1) := by
+theorem WeakPNT : Tendsto (fun N ↦ (∑ i ∈ Finset.range N, Λ i) / N) atTop (𝓝 1) := by
   let F := vonMangoldt.LFunctionResidueClassAux (q := 1) 1
   have hnv := riemannZeta_ne_zero_of_one_le_re
   have l1 (n : ℕ) : 0 ≤ Λ n := vonMangoldt_nonneg
