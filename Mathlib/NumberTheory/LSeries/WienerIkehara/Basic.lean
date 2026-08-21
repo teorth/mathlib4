@@ -61,22 +61,8 @@ open scoped ComplexConjugate
 
 variable {n : ℕ} {A a b c d u x y t σ' : ℝ} {ψ Ψ : ℝ → ℂ} {F G : ℂ → ℂ} {f : ℕ → ℂ}
 
-noncomputable
-def nterm (f : ℕ → ℂ) (σ' : ℝ) (n : ℕ) : ℝ := if n = 0 then 0 else ‖f n‖ / n ^ σ'
-
-lemma nterm_eq_norm_term {f : ℕ → ℂ} : nterm f σ' n = ‖term f σ' n‖ := by
-  by_cases h : n = 0 <;> simp [nterm, term, h]
-
-theorem norm_term_eq_nterm_re (s : ℂ) :
-    ‖term f s n‖ = nterm f (s.re) n := by
-  simp only [nterm, term, apply_ite (‖·‖), norm_zero, norm_div]
-  apply ite_congr rfl (fun _ ↦ rfl)
-  intro h
-  congr
-  refine norm_natCast_cpow_of_pos (by omega) s
-
 private lemma first_fourier (hsupp : Integrable ψ) (hx : 0 < x)
-    (hf : Summable (nterm f σ')) : ∑' n : ℕ, term f σ' n * (𝓕 ψ (1 / (2 * π) * log (n / x))) =
+    (hf : LSeriesSummable f σ') : ∑' n : ℕ, term f σ' n * (𝓕 ψ (1 / (2 * π) * log (n / x))) =
     ∫ t : ℝ, LSeries f (σ' + t * I) * ψ t * x ^ (t * I) :=
   calc
     _ = ∑' n, ∫ v, term f σ' n * 𝐞 (-(v * (1 / (2 * π) * log (n / x)))) • ψ v := by
@@ -88,8 +74,8 @@ private lemma first_fourier (hsupp : Integrable ψ) (hx : 0 < x)
       simp_rw [enorm_mul, lintegral_const_mul'' _ (this _)]
       have : (∑' (i : ℕ), (‖term f (↑σ') i‖₊ : ENNReal)) * ∫⁻ (a : ℝ), ‖ψ a‖ₑ ≠ ⊤ := by
         refine ENNReal.mul_ne_top ?_ (ne_top_of_lt hsupp.2)
-        simp_rw [ENNReal.tsum_coe_ne_top_iff_summable_coe, ← norm_toNNReal, ← nterm_eq_norm_term,
-          NNReal.summable_coe, hf.toNNReal]
+        simp_rw [ENNReal.tsum_coe_ne_top_iff_summable_coe, ← norm_toNNReal,
+          NNReal.summable_coe, hf.norm.toNNReal]
       simp_all [ENNReal.tsum_mul_right, enorm_eq_nnnorm]
     _ = _ := by
       congr with y
@@ -105,11 +91,12 @@ private lemma first_fourier (hsupp : Integrable ψ) (hx : 0 < x)
         congr
         field_simp
         grind
-      · exact .of_norm (by simp [norm_term_eq_nterm_re, hf])
+      · exact hf.of_re_le_re (by simp)
 
 attribute [fun_prop] measurable_coe_nnreal_ennreal
 
-lemma second_fourier_integrable_aux1 (hcont : Measurable ψ) (hsupp : Integrable ψ) (hσ : 1 < σ') :
+private lemma second_fourier_integrable_aux1 (hcont : Measurable ψ) (hsupp : Integrable ψ)
+    (hσ : 1 < σ') :
     let ν : Measure (ℝ × ℝ) := (volume.restrict (Ici (-log x))).prod volume
     Integrable (Function.uncurry fun (u : ℝ) (a : ℝ) ↦ ((rexp (-u * (σ' - 1))) : ℂ) •
     (𝐞 (-(a * (u / (2 * π)))) : ℂ) • ψ a) ν := by
@@ -128,7 +115,7 @@ lemma second_fourier_integrable_aux1 (hcont : Measurable ψ) (hsupp : Integrable
     exact exp_neg_integrableOn_Ioi _ (by linarith : 0 < σ' - 1)
   exact ENNReal.mul_lt_top this.2 hsupp.2
 
-lemma second_fourier (hcont : Measurable ψ) (hsupp : Integrable ψ)
+private lemma second_fourier (hcont : Measurable ψ) (hsupp : Integrable ψ)
     {x σ'} (hx : 0 < x) (hσ : 1 < σ') :
     ∫ u in Ici (-log x), Real.exp (-u * (σ' - 1)) * 𝓕 ψ (u / (2 * π)) =
     (x ^ (σ' - 1) : ℝ) * ∫ t, (1 / (σ' + t * I - 1)) * ψ t * x^(t * I) ∂ volume := calc
@@ -187,24 +174,21 @@ lemma integrable_fourier {ψ : ℝ → ℂ} (hψ : IsW21 ψ) (hc : c ≠ 0) :
   apply @Integrable.mono' ℝ ℂ _ volume _ _ (fun u => C / (1 + (u / c) ^ 2)) (l1 C) l2 ?_
   apply Eventually.of_forall (fun x => h _)
 
-lemma continuous_LSeries_aux (hf : Summable (nterm f σ')) :
+lemma continuous_LSeries_aux (hf : LSeriesSummable f σ') :
     Continuous fun x : ℝ => LSeries f (σ' + x * I) := by
   have l1 i : Continuous fun x : ℝ ↦ term f (σ' + x * I) i := by
     by_cases h : i = 0
     · simpa [h] using continuous_const
     · simpa [h] using! continuous_const.div (continuous_const.cpow (by fun_prop) (by simp [h]))
         (fun x => by simp [h])
-  have l2 n (x : ℝ) : ‖term f (σ' + x * I) n‖ = nterm f σ' n := by
-    by_cases h : n = 0
-    · simp [h, nterm]
-    · simp [h, nterm, cpow_add _ _ (Nat.cast_ne_zero.mpr h),
-        norm_natCast_cpow_of_pos (Nat.pos_of_ne_zero h)]
-  exact continuous_tsum l1 hf (fun n x => le_of_eq (l2 n x))
+  have l2 n (x : ℝ) : ‖term f (σ' + x * I) n‖ = ‖term f σ' n‖ := by
+    simp [norm_term_eq]
+  exact continuous_tsum l1 hf.norm (fun n x => le_of_eq (l2 n x))
 
 -- Here compact support is used but perhaps it is not necessary
 set_option backward.isDefEq.respectTransparency false in
 lemma limiting_fourier_aux (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1)) {s | 1 < s.re})
-    (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ')) (ψ : ℝ → ℂ) (hψ1 : ContDiff ℝ 2 ψ)
+    (hf : ∀ (σ' : ℝ), 1 < σ' → LSeriesSummable f σ') (ψ : ℝ → ℂ) (hψ1 : ContDiff ℝ 2 ψ)
     (hψ2 : HasCompactSupport ψ) (hx : 1 ≤ x) (σ' : ℝ)
     (hσ' : 1 < σ') :
     ∑' n, term f σ' n * 𝓕 ψ (1 / (2 * π) * log (n / x)) -
@@ -482,9 +466,11 @@ theorem limiting_fourier_lim1 (hcheby : cheby f) (ψ : ℝ → ℂ) (hψ : IsW21
   · rw [eventually_nhdsWithin_iff]
     apply Eventually.of_forall
     intro σ' (hσ' : 1 < σ') n
-    rw [norm_mul, ← nterm_eq_norm_term]
+    rw [norm_mul]
     refine mul_le_mul ?_ (hC _) (norm_nonneg _) (div_nonneg (norm_nonneg _) (Nat.cast_nonneg _))
-    by_cases h : n = 0 <;> simp only [nterm, h, ↓reduceIte, CharP.cast_eq_zero, div_zero, le_refl]
+    by_cases h : n = 0 <;>
+      simp only [norm_term_eq, Complex.ofReal_re, h, ↓reduceIte, CharP.cast_eq_zero, div_zero,
+        le_refl]
     have : 1 ≤ (n : ℝ) := by simpa using! Nat.pos_iff_ne_zero.mpr h
     refine div_le_div₀ (norm_nonneg _) le_rfl (by simpa [Nat.pos_iff_ne_zero]) ?_
     simpa using Real.rpow_le_rpow_of_exponent_le this hσ'.le
@@ -599,7 +585,7 @@ theorem limiting_fourier_lim3 (hG : ContinuousOn G {s | 1 ≤ s.re}) (ψ : ℝ �
 lemma limiting_fourier (hcheby : cheby f)
     (hG : ContinuousOn G {s | 1 ≤ s.re})
     (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1)) {s | 1 < s.re})
-    (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ')) (ψ : ℝ → ℂ) (hψ1 : ContDiff ℝ 2 ψ)
+    (hf : ∀ (σ' : ℝ), 1 < σ' → LSeriesSummable f σ') (ψ : ℝ → ℂ) (hψ1 : ContDiff ℝ 2 ψ)
     (hψ2 : HasCompactSupport ψ) (hx : 1 ≤ x) :
     ∑' n, f n / n * 𝓕 ψ (1 / (2 * π) * log (n / x)) -
       A * ∫ u in Set.Ici (-log x), 𝓕 ψ (u / (2 * π)) =
@@ -631,7 +617,7 @@ lemma limiting_cor_aux {f : ℝ → ℂ} : Tendsto (fun x : ℝ ↦ ∫ t, f t *
   exact (tendsto_neg_atBot_iff.mpr tendsto_log_atTop).atBot_mul_const (inv_pos.mpr two_pi_pos)
 
 lemma limiting_cor (ψ : ℝ → ℂ) (hψ1 : ContDiff ℝ 2 ψ) (hψ2 : HasCompactSupport ψ)
-    (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ')) (hcheby : cheby f)
+    (hf : ∀ (σ' : ℝ), 1 < σ' → LSeriesSummable f σ') (hcheby : cheby f)
     (hG : ContinuousOn G {s | 1 ≤ s.re})
     (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1)) {s | 1 < s.re}) :
     Tendsto (fun x : ℝ ↦ ∑' n, f n / n * 𝓕 ψ (1 / (2 * π) * log (n / x)) -
@@ -732,7 +718,7 @@ lemma bound_main {C : ℝ} (A : ℂ) (x : ℝ) (hx : 1 ≤ x) (ψ : ℝ → ℂ)
   convert _root_.add_le_add l1 l2 using 1; ring
 
 set_option backward.isDefEq.respectTransparency false in
-lemma limiting_cor_W21 (ψ : ℝ → ℂ) (hψ : IsW21 ψ) (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ'))
+lemma limiting_cor_W21 (ψ : ℝ → ℂ) (hψ : IsW21 ψ) (hf : ∀ (σ' : ℝ), 1 < σ' → LSeriesSummable f σ')
     (hcheby : cheby f) (hG : ContinuousOn G {s | 1 ≤ s.re})
     (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1)) {s | 1 < s.re}) :
     Tendsto (fun x : ℝ ↦ ∑' n, f n / n * 𝓕 ψ (1 / (2 * π) * log (n / x)) -
@@ -808,7 +794,7 @@ lemma limiting_cor_W21 (ψ : ℝ → ℂ) (hψ : IsW21 ψ) (hf : ∀ (σ' : ℝ)
   have S_sub : S x (ψ - Ψ R) = S x ψ - S x (Ψ R) := by simp [S, S1_sub, S2_sub]; ring
   simpa [S_sub, Ψ] using norm_add_le _ _ |>.trans_lt (_root_.add_lt_add key3 key)
 
-lemma limiting_cor_schwartz (ψ : 𝓢(ℝ, ℂ)) (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ'))
+lemma limiting_cor_schwartz (ψ : 𝓢(ℝ, ℂ)) (hf : ∀ (σ' : ℝ), 1 < σ' → LSeriesSummable f σ')
     (hcheby : cheby f) (hG : ContinuousOn G {s | 1 ≤ s.re})
     (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1)) {s | 1 < s.re}) :
     Tendsto (fun x : ℝ ↦ ∑' n, f n / n * 𝓕 ψ (1 / (2 * π) * log (n / x)) -
@@ -880,7 +866,7 @@ theorem wiener_ikehara_smooth_sub (h1 : Integrable Ψ)
     rw [abs_le]; constructor <;> linarith
   simp [ht]
 
-lemma wiener_ikehara_smooth (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ')) (hcheby : cheby f)
+lemma wiener_ikehara_smooth (hf : ∀ (σ' : ℝ), 1 < σ' → LSeriesSummable f σ') (hcheby : cheby f)
     (hG : ContinuousOn G {s | 1 ≤ s.re})
     (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1)) {s | 1 < s.re})
     (hsmooth : ContDiff ℝ ∞ Ψ) (hsupp : HasCompactSupport Ψ)
@@ -929,7 +915,7 @@ lemma wiener_ikehara_smooth (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f
     wiener_ikehara_smooth_sub (hsmooth.continuous.integrable_of_hasCompactSupport hsupp) hplus
   simpa [tsum_div_const] using (key.congr' <| EventuallyEq.sub l2 l3) |>.add l4
 
-lemma wiener_ikehara_smooth' (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ')) (hcheby : cheby f)
+lemma wiener_ikehara_smooth' (hf : ∀ (σ' : ℝ), 1 < σ' → LSeriesSummable f σ') (hcheby : cheby f)
     (hG : ContinuousOn G {s | 1 ≤ s.re})
     (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1)) {s | 1 < s.re})
     (hsmooth : ContDiff ℝ ∞ Ψ) (hsupp : HasCompactSupport Ψ)
@@ -944,7 +930,7 @@ theorem setIntegral_ofReal {f : ℝ → ℝ} {s : Set ℝ} : ∫ x in s, (f x : 
   integral_ofReal
 
 lemma wiener_ikehara_smooth_real {f : ℕ → ℝ} {Ψ : ℝ → ℝ}
-    (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ'))
+    (hf : ∀ (σ' : ℝ), 1 < σ' → LSeriesSummable f σ')
     (hcheby : cheby f) (hG : ContinuousOn G {s | 1 ≤ s.re})
     (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1)) {s | 1 < s.re})
     (hsmooth : ContDiff ℝ ∞ Ψ) (hsupp : HasCompactSupport Ψ)
@@ -1098,7 +1084,7 @@ lemma WI_tendsto_aux' (a b : ℝ) {A : ℝ} (hA : 0 < A) :
     rwa [this, div_lt_iff₀' hA, ← neg_sub, abs_neg]
 
 theorem residue_nonneg {f : ℕ → ℝ} (hpos : 0 ≤ f)
-    (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm (fun n ↦ ↑(f n)) σ')) (hcheby : cheby fun n ↦ ↑(f n))
+    (hf : ∀ (σ' : ℝ), 1 < σ' → LSeriesSummable (fun n ↦ ↑(f n)) σ') (hcheby : cheby fun n ↦ ↑(f n))
     (hG : ContinuousOn G {s | 1 ≤ s.re})
     (hG' : EqOn G (fun s ↦ LSeries (fun n ↦ ↑(f n)) s - ↑A / (s - 1)) {s | 1 < s.re}) :
     0 ≤ A := by
@@ -1126,7 +1112,7 @@ theorem residue_nonneg {f : ℕ → ℝ} (hpos : 0 ≤ f)
   have := div_nonneg l3 l4.le; field_simp at this; exact this
 
 lemma WienerIkeharaInterval {f : ℕ → ℝ} (hpos : 0 ≤ f)
-    (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ'))
+    (hf : ∀ (σ' : ℝ), 1 < σ' → LSeriesSummable f σ')
     (hcheby : cheby f) (hG : ContinuousOn G {s | 1 ≤ s.re})
     (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1)) {s | 1 < s.re}) (ha : 0 < a)
     (hb : a ≤ b) :
@@ -1201,7 +1187,7 @@ lemma tsum_indicator {f : ℕ → ℝ} (hx : 0 < x) :
   simp only [mem_Ico_iff_div hx]; intro n hn; simp [hn]
 
 lemma WienerIkeharaInterval_discrete {f : ℕ → ℝ} (hpos : 0 ≤ f)
-    (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ'))
+    (hf : ∀ (σ' : ℝ), 1 < σ' → LSeriesSummable f σ')
     (hcheby : cheby f) (hG : ContinuousOn G {s | 1 ≤ s.re})
     (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1)) {s | 1 < s.re}) (ha : 0 < a)
     (hb : a ≤ b) :
@@ -1212,7 +1198,7 @@ lemma WienerIkeharaInterval_discrete {f : ℕ → ℝ} (hpos : 0 ≤ f)
   rw [tsum_indicator hx]
 
 lemma WienerIkeharaInterval_discrete' {f : ℕ → ℝ} (hpos : 0 ≤ f)
-    (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ'))
+    (hf : ∀ (σ' : ℝ), 1 < σ' → LSeriesSummable f σ')
     (hcheby : cheby f) (hG : ContinuousOn G {s | 1 ≤ s.re})
     (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1)) {s | 1 < s.re}) (ha : 0 < a)
     (hb : a ≤ b) :
@@ -1274,7 +1260,7 @@ lemma tendsto_S_S_zero {f : ℕ → ℝ} (hpos : 0 ≤ f) (hcheby : cheby f) :
   simpa [← S_sub_S h2.2] using! l2.trans_lt h1
 
 theorem WienerIkeharaTheorem' {f : ℕ → ℝ} (hpos : 0 ≤ f)
-    (hf : ∀ (σ' : ℝ), 1 < σ' → Summable (nterm f σ'))
+    (hf : ∀ (σ' : ℝ), 1 < σ' → LSeriesSummable f σ')
     (hcheby : cheby f) (hG : ContinuousOn G {s | 1 ≤ s.re})
     (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1)) {s | 1 < s.re}) :
     Tendsto (fun N => (∑ i ∈ Finset.range N, f i) / N) atTop (𝓝 A) := by
@@ -1293,8 +1279,7 @@ theorem WeakPNT : Tendsto (fun N ↦ (∑ i ∈ Finset.range N, Λ i) / N) atTop
   apply WienerIkeharaTheorem' (G := F)
   · intro; simp
   · intro σ' hσ'
-    simpa only [← nterm_eq_norm_term] using
-      (@ArithmeticFunction.LSeriesSummable_vonMangoldt σ' hσ').norm
+    exact ArithmeticFunction.LSeriesSummable_vonMangoldt (s := σ') hσ'
   · use log 4 + 4
     intro N
     by_cases! h : N = 0
