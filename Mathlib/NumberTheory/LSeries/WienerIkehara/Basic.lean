@@ -128,75 +128,36 @@ lemma second_fourier_integrable_aux1 (hcont : Measurable ψ) (hsupp : Integrable
     exact exp_neg_integrableOn_Ioi _ (by linarith : 0 < σ' - 1)
   exact ENNReal.mul_lt_top this.2 hsupp.2
 
-lemma second_fourier_aux (hx : 0 < x) :
-    -(cexp (-((1 - σ' - t * I) * (log x))) / (1 - σ' - t * I)) =
-    ↑(x ^ (σ' - 1)) * (σ' + t * I - 1)⁻¹ * x ^ (t * I) := calc
-    _ = cexp ((log x) * ((σ' - 1) + t * I)) * (σ' + t * I - 1)⁻¹ := by rw [← div_neg]; ring_nf
-    _ = (x ^ ((σ' : ℂ) - 1)) * (x ^ (t * I)) * (σ' + t * I - 1)⁻¹ := by
-      rw [ofReal_log hx.le, ← cpow_def_of_ne_zero (ofReal_ne_zero.mpr (ne_of_gt hx)),
-        cpow_add _ _ (ofReal_ne_zero.mpr (ne_of_gt hx))]
-    _ = _ := by rw [ofReal_cpow hx.le]; push_cast; ring
-
-set_option backward.isDefEq.respectTransparency false in
 lemma second_fourier (hcont : Measurable ψ) (hsupp : Integrable ψ)
-    {x σ' : ℝ} (hx : 0 < x) (hσ : 1 < σ') :
+    {x σ'} (hx : 0 < x) (hσ : 1 < σ') :
     ∫ u in Ici (-log x), Real.exp (-u * (σ' - 1)) * 𝓕 ψ (u / (2 * π)) =
-    (x^(σ' - 1) : ℝ) * ∫ t, (1 / (σ' + t * I - 1)) * ψ t * x^(t * I) ∂ volume := by
-  conv in ↑(rexp _) * _ => { rw [Real.fourier_real_eq, ← smul_eq_mul, ← integral_smul] }
-  rw [MeasureTheory.integral_integral_swap]
-  swap
-  · exact second_fourier_integrable_aux1 hcont hsupp hσ
-  rw [← integral_const_mul]
-  congr 1; ext t
-  dsimp [Real.fourierChar, Circle.exp]
-  simp_rw [mul_smul_comm, ← smul_mul_assoc, integral_mul_const]
-  rw [fun (a b d : ℂ) ↦ show a * (b * (ψ t) * d) = (a * b * d) * ψ t by ring]
-  congr 1
-  conv =>
-    lhs
-    enter [2]
-    ext a
-    rw [AddChar.coe_mk, Submonoid.mk_smul, smul_eq_mul]
-  push_cast
-  simp_rw [← Complex.exp_add]
-  have (u : ℝ) :
-      2 * ↑π * -(↑t * (↑u / (2 * ↑π))) * I + -↑u * (↑σ' - 1) = (1 - σ' - t * I) * u := calc
-    _ = -↑u * (↑σ' - 1) + (2 * ↑π) / (2 * ↑π) * -(↑t * ↑u) * I := by ring
-    _ = -↑u * (↑σ' - 1) + 1 * -(↑t * ↑u) * I := by rw [div_self (by norm_num)]
-    _ = _ := by ring
-  simp_rw [this]
-  let c : ℂ := (1 - ↑σ' - ↑t * I)
-  have : c ≠ 0 := by simp [Complex.ext_iff, c, sub_ne_zero.mpr hσ.ne]
-  let f' (u : ℝ) := cexp (c * u)
-  let f := fun (u : ℝ) ↦ (f' u) / c
-  have hderiv : ∀ u ∈ Ici (-log x), HasDerivAt f (f' u) u := by
-    intro u _
-    rw [show f' u = cexp (c * u) * (c * 1) / c by simp only [f']; field_simp]
-    exact (hasDerivAt_id' u).ofReal_comp.const_mul c |>.cexp.div_const c
-  have hf : Tendsto f atTop (𝓝 0) := by
-    apply tendsto_zero_iff_norm_tendsto_zero.mpr
-    suffices Tendsto (fun (x : ℝ) ↦ ‖cexp (c * ↑x)‖ / ‖c‖) atTop (𝓝 (0 / ‖c‖)) by
-      simpa [f, f'] using this
-    apply Tendsto.div_const
-    suffices Tendsto (· * (1 - σ')) atTop atBot by simpa [Complex.norm_exp, mul_comm (1 - σ'), c]
-    exact Tendsto.atTop_mul_const_of_neg (by linarith) fun ⦃s⦄ h ↦ h
-  rw [integral_Ici_eq_integral_Ioi,
-    integral_Ioi_of_hasDerivAt_of_tendsto' hderiv _ hf]
-  · calc
-      _ = -(cexp (-((1 - σ' - t * I) * (log x))) / (1 - σ' - t * I)) := by simp [f,f',c]
-      _ = cexp ((log x) * ((σ' - 1) + t * I)) * (σ' + t * I - 1)⁻¹ := by rw [← div_neg]; ring_nf
-      _ = (x ^ ((σ' : ℂ) - 1)) * (x ^ (t * I)) * (σ' + t * I - 1)⁻¹ := by
-        rw [ofReal_log hx.le, ← cpow_def_of_ne_zero (ofReal_ne_zero.mpr (ne_of_gt hx)),
-          cpow_add _ _ (ofReal_ne_zero.mpr (ne_of_gt hx))]
-      _ = _ := by rw [ofReal_cpow hx.le]; push_cast; ring
-  · refine (integrable_norm_iff (Measurable.aestronglyMeasurable <| by fun_prop)).mp ?_
-    suffices IntegrableOn (fun a ↦ rexp (-(σ' - 1) * a)) (Ioi (-x.log)) _ by
-      simpa [Complex.norm_exp, f', c]
-    exact exp_neg_integrableOn_Ioi _ (by linarith : 0 < σ' - 1)
-
-
-
-#exit
+    (x ^ (σ' - 1) : ℝ) * ∫ t, (1 / (σ' + t * I - 1)) * ψ t * x^(t * I) ∂ volume := calc
+  _ = ∫ u in Ici (-log x), ∫ a, (rexp (-u * (σ' - 1)) : ℂ) • 𝐞 (-(a * (u / (2 * π)))) • ψ a := by
+    simp_rw [fourier_real_eq, ← smul_eq_mul, ← integral_smul]
+  _ = ∫ a, ∫ u in _, _ :=
+    integral_integral_swap (second_fourier_integrable_aux1 hcont hsupp hσ)
+  _ = _ := by
+    rw [← integral_const_mul]
+    congr; ext t
+    calc
+      _ = (∫ u in Ici (-log x), cexp ((1 - σ' - t * I) * u)) * (ψ t) := by
+        rw [← integral_mul_const]
+        congr with u
+        simp only [ofReal_exp, ofReal_neg, ofReal_mul, ofReal_sub, ofReal_one,
+          Circle.smul_def, fourierChar_apply, ← mul_assoc, ofReal_ofNat, ofReal_div,
+          smul_eq_mul, ← Complex.exp_add]
+        congr
+        field_simp
+        ring_nf
+      _ = (↑(x ^ (σ' - 1)) * x ^ (t * I)) * (1 / (σ' + t * I - 1)) * ψ t := by
+        rw [integral_Ici_eq_integral_Ioi, integral_exp_mul_complex_Ioi (by simp [hσ]), ofReal_neg,
+          division_def, neg_mul_comm, ofReal_cpow hx.le, ofReal_log hx.le]
+        congr 2
+        · have : (x : ℂ) ≠ 0 := mod_cast hx.ne.symm
+          rw [← cpow_add _ _ this, cpow_def_of_ne_zero this, ofReal_sub, ofReal_one]
+          ring_nf
+        grind
+      _ = _ := by ring
 
 lemma decay_bounds_key (ψ : ℝ → ℂ) (hψ : IsW21 ψ) (u : ℝ) :
     ‖𝓕 ψ u‖ ≤ W21.norm ψ * (1 + u ^ 2)⁻¹ := by
@@ -1326,38 +1287,32 @@ theorem WienerIkeharaTheorem' {f : ℕ → ℝ} (hpos : 0 ≤ f)
   · have : Tendsto (fun ε : ℝ => ε) (𝓝[>] 0) (𝓝 0) := nhdsWithin_le_nhds
     simpa using (this.const_sub 1).const_mul A
 
-theorem vonMangoldt_cheby : cheby Λ := by
-  use log 4 + 4
-  intro N
-  by_cases! h : N = 0
-  · simp [h]
-  simp only [norm_real, norm_eq_abs]
-  rw [Nat.range_eq_Icc_zero_sub_one _ h, (by simp : N - 1 = ⌊(N : ℝ) - 1⌋₊)]
-  simp_rw [abs_of_nonneg vonMangoldt_nonneg]
-  rw [← Chebyshev.psi_eq_sum_Icc]
-  grw [Chebyshev.psi_le_const_mul_self <| sub_nonneg_of_le <| Nat.one_le_cast_iff_ne_zero.mpr h]
-  gcongr
-  linarith
-
--- Proof extracted from the `EulerProducts` project so we can adapt it to the
--- version of the Wiener-Ikehara theorem proved above (with the `cheby`
--- hypothesis)
-
 theorem WeakPNT : Tendsto (fun N ↦ (∑ i ∈ Finset.range N, Λ i) / N) atTop (𝓝 1) := by
   let F := vonMangoldt.LFunctionResidueClassAux (q := 1) 1
   have hnv := riemannZeta_ne_zero_of_one_le_re
-  have l1 (n : ℕ) : 0 ≤ Λ n := vonMangoldt_nonneg
-  have l2 s (hs : 1 < s.re) : F s = LSeries Λ s - 1 / (s - 1) := by
+  apply WienerIkeharaTheorem' (G := F)
+  · intro; simp
+  · intro σ' hσ'
+    simpa only [← nterm_eq_norm_term] using
+      (@ArithmeticFunction.LSeriesSummable_vonMangoldt σ' hσ').norm
+  · use log 4 + 4
+    intro N
+    by_cases! h : N = 0
+    · simp [h]
+    simp only [norm_real, norm_eq_abs]
+    rw [Nat.range_eq_Icc_zero_sub_one _ h, (by simp : N - 1 = ⌊(N : ℝ) - 1⌋₊)]
+    simp_rw [abs_of_nonneg vonMangoldt_nonneg]
+    rw [← Chebyshev.psi_eq_sum_Icc]
+    grw [Chebyshev.psi_le_const_mul_self <| sub_nonneg_of_le <| Nat.one_le_cast_iff_ne_zero.mpr h]
+    gcongr
+    linarith
+  · exact vonMangoldt.continuousOn_LFunctionResidueClassAux 1
+  · intro s hs
+    simp only [mem_ofPred_eq, ofReal_one, one_div] at hs ⊢
     have := vonMangoldt.eqOn_LFunctionResidueClassAux (q := 1) isUnit_one hs
     simp only [F, this, vonMangoldt.residueClass, Nat.totient_one, Nat.cast_one, inv_one, one_div,
       sub_left_inj]
     apply LSeries_congr
     intro n _
     simp only [ofReal_inj, indicator_apply_eq_self, mem_ofPred_eq]
-    exact fun hn ↦ absurd (Subsingleton.eq_one _) hn
-  have l3 : ContinuousOn F {s | 1 ≤ s.re} := vonMangoldt.continuousOn_LFunctionResidueClassAux 1
-  have l4 : cheby Λ := vonMangoldt_cheby
-  have l5 (σ' : ℝ) (hσ' : 1 < σ') : Summable (nterm Λ σ') := by
-    simpa only [← nterm_eq_norm_term] using
-      (@ArithmeticFunction.LSeriesSummable_vonMangoldt σ' hσ').norm
-  apply WienerIkeharaTheorem' l1 l5 l4 l3 l2
+    exact absurd (Subsingleton.eq_one _) 
