@@ -1315,4 +1315,4 @@ theorem WeakPNT : Tendsto (fun N ↦ (∑ i ∈ Finset.range N, Λ i) / N) atTop
     apply LSeries_congr
     intro n _
     simp only [ofReal_inj, indicator_apply_eq_self, mem_ofPred_eq]
-    exact absurd (Subsingleton.eq_one _) 
+    exact absurd (Subsingleton.eq_one _)
