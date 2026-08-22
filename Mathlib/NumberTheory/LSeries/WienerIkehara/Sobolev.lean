@@ -9,6 +9,8 @@ module
 public import Mathlib.Analysis.Calculus.Deriv.Support
 public import Mathlib.Analysis.Distribution.SchwartzSpace.Deriv
 public import Mathlib.Order.Filter.ZeroAndBoundedAtFilter
+public import Mathlib.Analysis.Fourier.FourierTransformDeriv
+public import Mathlib.Analysis.SpecialFunctions.ImproperIntegrals
 
 /-!
 # Compactly supported `Cⁿ` functions and the Sobolev space `W^{2,1}`
@@ -21,36 +23,15 @@ This file is a draft port from the `PrimeNumberTheoremAnd` project.
 -/
 
 @[expose] public section
-open Real Complex MeasureTheory Filter Topology BoundedContinuousFunction SchwartzMap  BigOperators
+open Real Complex MeasureTheory Filter Topology BoundedContinuousFunction SchwartzMap BigOperators
+  FourierTransform
 open scoped ContDiff
-
-variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] {n : ℕ}
 
 /-- `f` lies in the Sobolev space `W^{2,1}(ℝ)`: it is `C²`, and it and its first two
 derivatives are integrable.  This is a `Prop`-valued replacement for the bundled space `W21`. -/
 structure IsW21 (f : ℝ → ℂ) : Prop where
   smooth : ContDiff ℝ 2 f
   integrable : ∀ ⦃k⦄, k ≤ 2 → Integrable (iteratedDeriv k f)
-
-namespace IsW21
-
-variable {f : ℝ → ℂ}
-
-lemma hf (h : IsW21 f) : Integrable f := by
-  simpa using h.integrable (zero_le_two)
-
-lemma hf' (h : IsW21 f) : Integrable (deriv f) := by
-  simpa [iteratedDeriv_succ, iteratedDeriv_zero] using h.integrable one_le_two
-
-lemma hf'' (h : IsW21 f) : Integrable (deriv (deriv f)) := by
-  simpa [iteratedDeriv_succ, iteratedDeriv_zero] using h.integrable le_rfl
-
-end IsW21
-
-lemma integrable_iteratedDeriv_Schwarz {f : 𝓢(ℝ, ℂ)} : Integrable (iteratedDeriv n f) := by
-  induction n generalizing f with
-  | zero => exact f.integrable
-  | succ n ih => simpa [iteratedDeriv_succ'] using! ih (f := SchwartzMap.derivCLM ℝ ℂ f)
 
 namespace W21
 
@@ -63,7 +44,29 @@ lemma norm_nonneg {f : ℝ → ℂ} : 0 ≤ norm f :=
 
 end W21
 
-lemma IsW21.sub {f g : ℝ → ℂ} (hf : IsW21 f) (hg : IsW21 g) : IsW21 (f - g) where
+@[fun_prop]
+lemma integrable_iteratedDeriv_Schwarz {f : 𝓢(ℝ, ℂ)} {n : ℕ} : Integrable (iteratedDeriv n f) := by
+  induction n generalizing f with
+  | zero => exact f.integrable
+  | succ n ih => simpa [iteratedDeriv_succ'] using! ih (f := SchwartzMap.derivCLM ℝ ℂ f)
+
+namespace IsW21
+
+variable {f g : ℝ → ℂ}
+
+@[fun_prop]
+lemma hf (h : IsW21 f) : Integrable f := by
+  simpa using h.integrable zero_le_two
+
+@[fun_prop]
+lemma hf' (h : IsW21 f) : Integrable (deriv f) := by
+  simpa [iteratedDeriv_succ, iteratedDeriv_zero] using h.integrable one_le_two
+
+@[fun_prop]
+lemma hf'' (h : IsW21 f) : Integrable (deriv (deriv f)) := by
+  simpa [iteratedDeriv_succ, iteratedDeriv_zero] using h.integrable le_rfl
+
+lemma sub (hf : IsW21 f) (hg : IsW21 g) : IsW21 (f - g) where
   smooth := hf.smooth.sub hg.smooth
   integrable k hk := by
     have h1 : ContDiff ℝ k f := hf.smooth.of_le (by simp [hk])
@@ -72,7 +75,7 @@ lemma IsW21.sub {f g : ℝ → ℂ} (hf : IsW21 f) (hg : IsW21 g) : IsW21 (f - g
       ext x; exact iteratedDeriv_sub h1.contDiffAt h2.contDiffAt
     simpa [h3] using (hf.integrable hk).sub (hg.integrable hk)
 
-lemma IsW21.of_hasCompactSupport {f : ℝ → ℂ} (h1 : ContDiff ℝ 2 f) (h2 : HasCompactSupport f) :
+lemma of_hasCompactSupport (h1 : ContDiff ℝ 2 f) (h2 : HasCompactSupport f) :
     IsW21 f := by
   refine ⟨h1, fun k hk ↦ ?_⟩; match k with
   | 0 => exact h1.continuous.integrable_of_hasCompactSupport h2
@@ -80,9 +83,36 @@ lemma IsW21.of_hasCompactSupport {f : ℝ → ℂ} (h1 : ContDiff ℝ 2 f) (h2 :
   | 2 => simpa [iteratedDeriv_succ] using
     (h1.iterate_deriv' 0 2).continuous.integrable_of_hasCompactSupport h2.deriv.deriv
 
-lemma IsW21.of_schwartz (f : 𝓢(ℝ, ℂ)) : IsW21 f :=
+lemma of_schwartz (f : 𝓢(ℝ, ℂ)) : IsW21 f :=
   ⟨f.smooth 2, fun _ _ ↦ integrable_iteratedDeriv_Schwarz⟩
 
+end IsW21
+
+variable {ψ : ℝ → ℂ} {c : ℝ}
+
+lemma decay_bounds_key (hψ : IsW21 ψ) (u : ℝ) :
+    ‖𝓕 ψ u‖ ≤ W21.norm ψ * (1 + u ^ 2)⁻¹ := by
+  rw [← div_eq_mul_inv, le_div_iff₀ (by positivity : 0 < 1 + u ^ 2), mul_comm]
+  simpa [W21.norm, iteratedDeriv_succ, iteratedDeriv_zero] using
+    one_add_sq_mul_norm_fourier_le hψ.smooth (fun k hk ↦ hψ.integrable hk) u
+
+lemma decay_bounds_cor (hψ : IsW21 ψ) :
+    ∃ C : ℝ, ∀ u, ‖𝓕 ψ u‖ ≤ C / (1 + u ^ 2) := by
+  simpa only [div_eq_mul_inv] using ⟨_, decay_bounds_key hψ⟩
+
+@[continuity, fun_prop] lemma continuous_FourierIntegral (hψ : IsW21 ψ) :
+    Continuous (𝓕 ψ) :=
+  VectorFourier.fourierIntegral_continuous continuous_fourierChar
+    (by simp only [innerₗ_apply_apply, RCLike.inner_apply', conj_trivial, continuous_mul])
+    hψ.hf
+
+lemma integrable_fourier (hψ : IsW21 ψ) (hc : c ≠ 0) :
+    Integrable fun u ↦ 𝓕 ψ (u / c) := by
+  obtain ⟨C, h⟩ := decay_bounds_cor hψ
+  apply Integrable.mono' (g := fun u => C / (1 + (u / c) ^ 2)) ?_ ?_ ?_
+  · simpa using! (integrable_inv_one_add_sq.comp_div hc).const_mul C
+  · exact Continuous.aestronglyMeasurable (by fun_prop)
+  · exact Eventually.of_forall (fun _ ↦ h _)
 /-- If `g` is a smooth, compactly supported truncation which equals `1` near the origin and
 takes values in `[0, 1]`, then `v ↦ g (R⁻¹ * v) * ψ v` converges to `ψ` in the `W^{2,1}` norm
 as `R → ∞`. -/

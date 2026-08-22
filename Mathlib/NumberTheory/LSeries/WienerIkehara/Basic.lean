@@ -146,29 +146,6 @@ private lemma second_fourier (hcont : Measurable ψ) (hsupp : Integrable ψ)
         grind
       _ = _ := by ring
 
-lemma decay_bounds_key (hψ : IsW21 ψ) (u : ℝ) :
-    ‖𝓕 ψ u‖ ≤ W21.norm ψ * (1 + u ^ 2)⁻¹ := by
-  rw [← div_eq_mul_inv, le_div_iff₀ (by positivity : 0 < 1 + u ^ 2), mul_comm]
-  simpa [W21.norm, iteratedDeriv_succ, iteratedDeriv_zero] using
-    one_add_sq_mul_norm_fourier_le hψ.smooth (fun k hk ↦ hψ.integrable hk) u
-
-lemma decay_bounds_cor (hψ : IsW21 ψ) :
-    ∃ C : ℝ, ∀ u, ‖𝓕 ψ u‖ ≤ C / (1 + u ^ 2) := by
-  simpa only [div_eq_mul_inv] using ⟨_, decay_bounds_key hψ⟩
-
-@[continuity, fun_prop] lemma continuous_FourierIntegral (hψ : IsW21 ψ) :
-    Continuous (𝓕 ψ) :=
-  VectorFourier.fourierIntegral_continuous continuous_fourierChar
-    (by simp only [innerₗ_apply_apply, RCLike.inner_apply', conj_trivial, continuous_mul])
-    hψ.hf
-
-lemma integrable_fourier (hψ : IsW21 ψ) (hc : c ≠ 0) :
-    Integrable fun u ↦ 𝓕 ψ (u / c) := by
-  obtain ⟨C, h⟩ := decay_bounds_cor hψ
-  apply Integrable.mono' (g := fun u => C / (1 + (u / c) ^ 2)) ?_ ?_ ?_
-  · simpa using! (integrable_inv_one_add_sq.comp_div hc).const_mul C
-  · exact Continuous.aestronglyMeasurable (by fun_prop)
-  · exact Eventually.of_forall (fun _ ↦ h _)
 
 lemma continuous_LSeries_aux (hf : LSeriesSummable f σ') :
     Continuous fun x : ℝ => LSeries f (σ' + x * I) := by
