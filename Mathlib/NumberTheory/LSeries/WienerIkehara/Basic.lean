@@ -95,7 +95,7 @@ private lemma first_fourier (hsupp : Integrable ψ) (hx : 0 < x)
 
 attribute [fun_prop] measurable_coe_nnreal_ennreal
 
-private lemma second_fourier_integrable_aux1 (hcont : Measurable ψ) (hsupp : Integrable ψ)
+private lemma second_fourier_aux (hcont : Measurable ψ) (hsupp : Integrable ψ)
     (hσ : 1 < σ') :
     let ν : Measure (ℝ × ℝ) := (volume.restrict (Ici (-log x))).prod volume
     Integrable (Function.uncurry fun (u : ℝ) (a : ℝ) ↦ ((rexp (-u * (σ' - 1))) : ℂ) •
@@ -122,7 +122,7 @@ private lemma second_fourier (hcont : Measurable ψ) (hsupp : Integrable ψ)
   _ = ∫ u in Ici (-log x), ∫ a, (rexp (-u * (σ' - 1)) : ℂ) • 𝐞 (-(a * (u / (2 * π)))) • ψ a := by
     simp_rw [fourier_real_eq, ← smul_eq_mul, ← integral_smul]
   _ = ∫ a, ∫ u in _, _ :=
-    integral_integral_swap (second_fourier_integrable_aux1 hcont hsupp hσ)
+    integral_integral_swap (second_fourier_aux hcont hsupp hσ)
   _ = _ := by
     rw [← integral_const_mul]
     congr; ext t
@@ -146,33 +146,29 @@ private lemma second_fourier (hcont : Measurable ψ) (hsupp : Integrable ψ)
         grind
       _ = _ := by ring
 
-lemma decay_bounds_key (ψ : ℝ → ℂ) (hψ : IsW21 ψ) (u : ℝ) :
+lemma decay_bounds_key (hψ : IsW21 ψ) (u : ℝ) :
     ‖𝓕 ψ u‖ ≤ W21.norm ψ * (1 + u ^ 2)⁻¹ := by
-  rw [← div_eq_mul_inv, le_div_iff₀ (by positivity : (0:ℝ) < 1 + u ^ 2), mul_comm]
+  rw [← div_eq_mul_inv, le_div_iff₀ (by positivity : 0 < 1 + u ^ 2), mul_comm]
   simpa [W21.norm, iteratedDeriv_succ, iteratedDeriv_zero] using
-    Real.one_add_sq_mul_norm_fourier_le hψ.smooth (fun _ hk ↦ hψ.integrable hk) u
+    one_add_sq_mul_norm_fourier_le hψ.smooth (fun k hk ↦ hψ.integrable hk) u
 
-lemma decay_bounds_cor (ψ : ℝ → ℂ) (hψ : IsW21 ψ) :
+lemma decay_bounds_cor (hψ : IsW21 ψ) :
     ∃ C : ℝ, ∀ u, ‖𝓕 ψ u‖ ≤ C / (1 + u ^ 2) := by
-  simpa only [div_eq_mul_inv] using ⟨_, decay_bounds_key ψ hψ⟩
+  simpa only [div_eq_mul_inv] using ⟨_, decay_bounds_key hψ⟩
 
-set_option backward.isDefEq.respectTransparency false in
-@[continuity, fun_prop] lemma continuous_FourierIntegral {ψ : ℝ → ℂ} (hψ : IsW21 ψ) :
+@[continuity, fun_prop] lemma continuous_FourierIntegral (hψ : IsW21 ψ) :
     Continuous (𝓕 ψ) :=
   VectorFourier.fourierIntegral_continuous continuous_fourierChar
     (by simp only [innerₗ_apply_apply, RCLike.inner_apply', conj_trivial, continuous_mul])
     hψ.hf
 
-lemma integrable_fourier {ψ : ℝ → ℂ} (hψ : IsW21 ψ) (hc : c ≠ 0) :
+lemma integrable_fourier (hψ : IsW21 ψ) (hc : c ≠ 0) :
     Integrable fun u ↦ 𝓕 ψ (u / c) := by
-  have l1 (C) : Integrable (fun u ↦ C / (1 + (u / c) ^ 2)) volume := by
-    simpa using! (integrable_inv_one_add_sq.comp_div hc).const_mul C
-  have l2 : AEStronglyMeasurable (fun u ↦ 𝓕 ψ (u / c)) volume := by
-    apply Continuous.aestronglyMeasurable
-    exact (continuous_FourierIntegral hψ).comp (continuous_id.div_const c)
-  obtain ⟨C, h⟩ := decay_bounds_cor ψ hψ
-  apply @Integrable.mono' ℝ ℂ _ volume _ _ (fun u => C / (1 + (u / c) ^ 2)) (l1 C) l2 ?_
-  apply Eventually.of_forall (fun x => h _)
+  obtain ⟨C, h⟩ := decay_bounds_cor hψ
+  apply Integrable.mono' (g := fun u => C / (1 + (u / c) ^ 2)) ?_ ?_ ?_
+  · simpa using! (integrable_inv_one_add_sq.comp_div hc).const_mul C
+  · exact Continuous.aestronglyMeasurable (by fun_prop)
+  · exact Eventually.of_forall (fun _ ↦ h _)
 
 lemma continuous_LSeries_aux (hf : LSeriesSummable f σ') :
     Continuous fun x : ℝ => LSeries f (σ' + x * I) := by
@@ -227,7 +223,6 @@ lemma limiting_fourier_aux (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1
   field_simp [e2]
   norm_cast
   simp [mul_assoc, ← rpow_add l3]
-
 
 @[local gcongr]
 theorem norm_le_norm_of_nonneg (x y : ℝ) (hx : 0 ≤ x) (hxy : x ≤ y) : ‖x‖ ≤ ‖y‖ := by
@@ -454,7 +449,7 @@ theorem limiting_fourier_lim1 (hcheby : cheby f) (ψ : ℝ → ℂ) (hψ : IsW21
     Tendsto (fun σ' : ℝ ↦
         ∑' n, term f σ' n * 𝓕 ψ (1 / (2 * π) * log (n / x))) (𝓝[>] 1)
       (𝓝 (∑' n, f n / n * 𝓕 ψ (1 / (2 * π) * log (n / x)))) := by
-  obtain ⟨C, hC⟩ := decay_bounds_cor ψ hψ
+  obtain ⟨C, hC⟩ := decay_bounds_cor hψ
   have : 0 ≤ C := by simpa using (norm_nonneg _).trans (hC 0)
   refine tendsto_tsum_of_dominated_convergence
     (limiting_fourier_lim1_aux hcheby hx C this) (fun n => ?_) ?_
@@ -486,7 +481,7 @@ theorem limiting_fourier_lim2 (A : ℝ) (ψ : ℝ → ℂ) (hψ : IsW21 ψ) (hx 
     Tendsto (fun σ' ↦ A * ↑(x ^ (1 - σ')) *
         ∫ u in Ici (-log x), rexp (-u * (σ' - 1)) * 𝓕 ψ (u / (2 * π)))
       (𝓝[>] 1) (𝓝 (A * ∫ u in Ici (-log x), 𝓕 ψ (u / (2 * π)))) := by
-  obtain ⟨C, hC⟩ := decay_bounds_cor ψ hψ
+  obtain ⟨C, hC⟩ := decay_bounds_cor hψ
   apply Tendsto.mul
   · suffices h : Tendsto (fun σ' : ℝ ↦ ofReal (x ^ (1 - σ'))) (𝓝[>] 1) (𝓝 1) by
       simpa using h.const_mul ↑A
@@ -649,7 +644,7 @@ variable (f x) in
 lemma summable_fourier_aux (ψ : ℝ → ℂ) (hψ : IsW21 ψ) (i : ℕ) :
     ‖f i / i * 𝓕 ψ (1 / (2 * π) * log (i / x))‖ ≤
       W21.norm ψ * (‖f i‖ / i * (1 + (1 / (2 * π) * log (i / x)) ^ 2)⁻¹) := by
-  convert! mul_le_mul_of_nonneg_left (decay_bounds_key ψ hψ (1 / (2 * π) * log (i / x)))
+  convert! mul_le_mul_of_nonneg_left (decay_bounds_key hψ (1 / (2 * π) * log (i / x)))
     (norm_nonneg (f i / i)) using 1
   · simp
   · simp only [W21.norm, mul_inv_rev, one_div, Complex.norm_div, RCLike.norm_natCast]
@@ -687,7 +682,7 @@ lemma bound_I1' {C : ℝ} (x : ℝ) (hx : 1 ≤ x) (ψ : ℝ → ℂ) (hψ : IsW
 lemma bound_I2 (x : ℝ) (ψ : ℝ → ℂ) (hψ : IsW21 ψ) :
     ‖∫ u in Set.Ici (-log x), 𝓕 ψ (u / (2 * π))‖ ≤ W21.norm ψ * (2 * π ^ 2) := by
   have key a : ‖𝓕 ψ (a / (2 * π))‖ ≤ W21.norm ψ * (1 + (a / (2 * π)) ^ 2)⁻¹ :=
-    decay_bounds_key ψ hψ _
+    decay_bounds_key hψ _
   have twopi : 0 ≤ 2 * π := by simp [pi_nonneg]
   have l3 : Integrable (fun a ↦ (1 + (a / (2 * π)) ^ 2)⁻¹) :=
     integrable_inv_one_add_sq.comp_div (by norm_num [pi_ne_zero])
