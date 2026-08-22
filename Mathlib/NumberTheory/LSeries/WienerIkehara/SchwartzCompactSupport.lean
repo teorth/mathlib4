@@ -53,7 +53,8 @@ follows.
 
 ## TODO
 
-All proofs are currently `sorry`; this file is a design scaffold.
+Most proofs are still `sorry`. Done so far: `norm_iteratedFDeriv_bumpR_le` (the `R⁻ⁿ` scaling
+bound), `hasTemperateGrowth_bumpR`, `truncate_apply`.
 -/
 
 @[expose] public section
@@ -71,8 +72,11 @@ namespace SchwartzMap
 /-- A fixed reference bump on `E`: equal to `1` on the closed unit ball, supported in `ball 0 2`. -/
 def bumpχ : ContDiffBump (0 : E) := ⟨1, 2, one_pos, one_lt_two⟩
 
+/-- The reference bump `bumpχ` as a plain function `E → ℝ`. -/
+def χ₀ (x : E) : ℝ := (bumpχ : ContDiffBump (0 : E)) x
+
 /-- The reference bump rescaled by `R`: equal to `1` on `ball 0 R`, supported in `ball 0 (2R)`. -/
-def bumpR (R : ℝ) (x : E) : ℝ := (bumpχ : ContDiffBump (0 : E)) (R⁻¹ • x)
+def bumpR (R : ℝ) (x : E) : ℝ := χ₀ (R⁻¹ • x)
 
 section Bump
 
@@ -100,11 +104,24 @@ locally constant equal to `1`). -/
 lemma iteratedFDeriv_bumpR_eq_zero (hR : 0 < R) {n : ℕ} (hn : 1 ≤ n) {x : E} (hx : ‖x‖ < R) :
     iteratedFDeriv ℝ n (bumpR R) x = 0 := sorry
 
-/-- Key scaling bound: differentiating `bumpR R = χ (R⁻¹ • ·)` gains a factor `R⁻ⁿ`. -/
-lemma norm_iteratedFDeriv_bumpR_le (R : ℝ) (n : ℕ) (x : E) :
-    ‖iteratedFDeriv ℝ n (bumpR R) x‖
-      ≤ R⁻¹ ^ n * ‖iteratedFDeriv ℝ n (fun y : E ↦ (bumpχ : ContDiffBump (0 : E)) y) (R⁻¹ • x)‖ :=
-  sorry
+/-- Key scaling bound: differentiating `bumpR R = χ₀ (R⁻¹ • ·)` gains a factor `R⁻ⁿ`. -/
+lemma norm_iteratedFDeriv_bumpR_le (hR : 0 < R) (n : ℕ) (x : E) :
+    ‖iteratedFDeriv ℝ n (bumpR R) x‖ ≤ R⁻¹ ^ n * ‖iteratedFDeriv ℝ n (χ₀ : E → ℝ) (R⁻¹ • x)‖ := by
+  set L : E →L[ℝ] E := R⁻¹ • ContinuousLinearMap.id ℝ E with hLdef
+  have hLx : L x = R⁻¹ • x := by simp [hLdef]
+  have hcomp : bumpR R = (χ₀ : E → ℝ) ∘ L := by funext y; simp [bumpR, hLdef]
+  have hnormL : ‖L‖ ≤ R⁻¹ := by
+    grw [hLdef, norm_smul, norm_inv, Real.norm_eq_abs, abs_of_pos hR]
+    calc R⁻¹ * ‖ContinuousLinearMap.id ℝ E‖ ≤ R⁻¹ * 1 := by
+            gcongr; exact ContinuousLinearMap.norm_id_le
+      _ = R⁻¹ := mul_one _
+  rw [hcomp, ContinuousLinearMap.iteratedFDeriv_comp_right L (f := χ₀) bumpχ.contDiff x le_rfl, hLx]
+  set g := iteratedFDeriv ℝ n (χ₀ : E → ℝ) (R⁻¹ • x)
+  calc ‖g.compContinuousLinearMap fun _ ↦ L‖
+      ≤ ‖g‖ * ∏ _i : Fin n, ‖L‖ := ContinuousMultilinearMap.norm_compContinuousLinearMap_le _ _
+    _ = ‖g‖ * ‖L‖ ^ n := by rw [Finset.prod_const, Finset.card_univ, Fintype.card_fin]
+    _ ≤ ‖g‖ * R⁻¹ ^ n := by gcongr
+    _ = R⁻¹ ^ n * ‖g‖ := mul_comm _ _
 
 end Bump
 
