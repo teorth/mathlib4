@@ -59,46 +59,41 @@ follows.
 @[expose] public section
 
 open scoped Topology ContDiff
-open Filter Metric ContinuousLinearMap
+open Filter Metric ContinuousLinearMap Real Finset Function
 
 noncomputable section
 
+namespace SchwartzMap
+
 variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [FiniteDimensional ℝ E]
 variable {F : Type*} [NormedAddCommGroup F] [NormedSpace ℝ F]
-
-namespace SchwartzMap
+variable {R : ℝ} (f : 𝓢(E, F))
 
 /-- A fixed reference bump on `E`: equal to `1` on the closed unit ball, supported in `ball 0 2`. -/
 def bumpχ : ContDiffBump (0 : E) := ⟨1, 2, one_pos, one_lt_two⟩
 
 /-- The reference bump `bumpχ` as a plain function `E → ℝ`. -/
-def χ₀ (x : E) : ℝ := (bumpχ : ContDiffBump (0 : E)) x
+def χ₀ : E → ℝ := bumpχ (E := E)
 
 /-- The reference bump rescaled by `R`: equal to `1` on `ball 0 R`, supported in `ball 0 (2R)`. -/
 def bumpR (R : ℝ) (x : E) : ℝ := χ₀ (R⁻¹ • x)
 
 section Bump
 
-variable {R : ℝ}
-
 @[simp]
 lemma bumpR_eq_one (hR : 0 < R) {x : E} (hx : ‖x‖ ≤ R) : bumpR R x = 1 := by
   refine bumpχ.one_of_mem_closedBall ?_
-  rw [mem_closedBall_zero_iff, norm_smul, norm_inv, Real.norm_eq_abs, abs_of_pos hR]
-  calc R⁻¹ * ‖x‖ ≤ R⁻¹ * R := by gcongr
-    _ = 1 := inv_mul_cancel₀ hR.ne'
+  grw [mem_closedBall_zero_iff, norm_smul, hx]
+  simp [inv_mul_cancel₀ hR.ne', bumpχ, abs_of_pos hR]
 
 lemma bumpR_nonneg (R : ℝ) (x : E) : 0 ≤ bumpR R x := bumpχ.nonneg' _
 
 lemma bumpR_le_one (R : ℝ) (x : E) : bumpR R x ≤ 1 := bumpχ.le_one
 
-lemma contDiff_bumpR (R : ℝ) : ContDiff ℝ ∞ (bumpR R : E → ℝ) :=
+lemma contDiff_bumpR (R : ℝ) : ContDiff ℝ ∞ (bumpR R (E := E)) :=
   bumpχ.contDiff.comp (contDiff_const_smul R⁻¹)
 
-lemma support_χ₀ : Function.support (χ₀ : E → ℝ) = Metric.ball (0 : E) 2 :=
-  (bumpχ : ContDiffBump (0 : E)).support_eq
-
-lemma contDiff_χ₀ : ContDiff ℝ ∞ (χ₀ : E → ℝ) := bumpχ.contDiff
+lemma support_χ₀ : support χ₀ = ball (0 : E) 2 := bumpχ.support_eq
 
 lemma hasCompactSupport_χ₀ : HasCompactSupport (χ₀ : E → ℝ) :=
   IsCompact.of_isClosed_subset (isCompact_closedBall 0 2) (isClosed_tsupport _)
@@ -106,30 +101,27 @@ lemma hasCompactSupport_χ₀ : HasCompactSupport (χ₀ : E → ℝ) :=
 
 /-- Each iterated derivative of the reference bump `χ₀` is bounded, uniformly over orders `≤ m`. -/
 lemma exists_bound_iteratedFDeriv_χ₀ (m : ℕ) :
-    ∃ A : ℝ, 0 ≤ A ∧ ∀ i ≤ m, ∀ y : E, ‖iteratedFDeriv ℝ i (χ₀ : E → ℝ) y‖ ≤ A := by
-  have key : ∀ i, ∃ A : ℝ, ∀ y : E, ‖iteratedFDeriv ℝ i (χ₀ : E → ℝ) y‖ ≤ A := fun i =>
-    Continuous.bounded_above_of_compact_support
-      (contDiff_χ₀.continuous_iteratedFDeriv (by exact_mod_cast le_top))
+    ∃ A : ℝ, 0 ≤ A ∧ ∀ i ≤ m, ∀ y : E, ‖iteratedFDeriv ℝ i (χ₀ (E := E)) y‖ ≤ A := by
+  have key (i) : ∃ A : ℝ, ∀ y : E, ‖iteratedFDeriv ℝ i χ₀ y‖ ≤ A :=
+    (bumpχ.contDiff.continuous_iteratedFDeriv (mod_cast le_top)).bounded_above_of_compact_support
       (hasCompactSupport_χ₀.iteratedFDeriv i)
   choose A hA using key
-  refine ⟨max 0 ((Finset.range (m + 1)).sup' ⟨0, by simp⟩ A), le_max_left _ _, fun i hi y => ?_⟩
-  exact (hA i y).trans (le_max_of_le_right (Finset.le_sup' A (Finset.mem_range.mpr (by omega))))
+  refine ⟨max 0 ((range (m + 1)).sup' ⟨0, by simp⟩ A), le_max_left _ _, fun i hi y => ?_⟩
+  exact (hA i y).trans (le_max_of_le_right (le_sup' A (by grind)))
 
 lemma support_bumpR (hR : 0 < R) :
-    Function.support (bumpR R : E → ℝ) ⊆ closedBall (0 : E) (2 * R) := by
+    support (bumpR R (E := E)) ⊆ closedBall (0 : E) (2 * R) := by
   intro x hx
   rw [mem_closedBall_zero_iff]
-  have hmem : R⁻¹ • x ∈ Function.support (χ₀ : E → ℝ) := hx
-  rw [support_χ₀, mem_ball_zero_iff, norm_smul, norm_inv, Real.norm_eq_abs, abs_of_pos hR,
-    inv_mul_lt_iff₀ hR] at hmem
+  change R⁻¹ • x ∈ support χ₀ at hx
+  simp [support_χ₀, norm_smul, abs_of_pos, inv_mul_lt_iff₀, hR] at hx
   linarith
 
-lemma hasCompactSupport_bumpR (hR : 0 < R) : HasCompactSupport (bumpR R : E → ℝ) :=
+lemma hasCompactSupport_bumpR (hR : 0 < R) : HasCompactSupport (bumpR R (E := E)) :=
   IsCompact.of_isClosed_subset (isCompact_closedBall 0 (2 * R)) (isClosed_tsupport _)
     (closure_minimal (support_bumpR hR) isClosed_closedBall)
 
-lemma hasTemperateGrowth_bumpR (hR : 0 < R) :
-    Function.HasTemperateGrowth (bumpR R : E → ℝ) :=
+lemma hasTemperateGrowth_bumpR (hR : 0 < R) : HasTemperateGrowth (bumpR R (E := E)) :=
   (hasCompactSupport_bumpR hR).hasTemperateGrowth (contDiff_bumpR R)
 
 /-- The derivatives of `bumpR R` vanish on the ball of radius `R` for `n ≥ 1` (where `bumpR R` is
@@ -139,8 +131,7 @@ lemma iteratedFDeriv_bumpR_eq_zero (hR : 0 < R) {n : ℕ} (hn : 1 ≤ n) {x : E}
   have heq : (bumpR R : E → ℝ) =ᶠ[𝓝 x] fun _ ↦ (1 : ℝ) := by
     filter_upwards [(isOpen_lt continuous_norm continuous_const).mem_nhds hx] with y hy
     exact bumpR_eq_one hR hy.le
-  rw [(Filter.EventuallyEq.iteratedFDeriv ℝ heq n).eq_of_nhds,
-    iteratedFDeriv_const_of_ne (by omega : n ≠ 0)]
+  rw [(EventuallyEq.iteratedFDeriv ℝ heq n).eq_of_nhds, iteratedFDeriv_const_of_ne (by omega)]
   rfl
 
 /-- Key scaling bound: differentiating `bumpR R = χ₀ (R⁻¹ • ·)` gains a factor `R⁻ⁿ`. -/
@@ -155,115 +146,83 @@ end Bump
 
 /-- The truncation of a Schwartz function `f` by the rescaled bump `bumpR R`; a compactly supported
 Schwartz function that approximates `f` as `R → ∞`. -/
-def truncate (f : 𝓢(E, F)) (R : ℝ) : 𝓢(E, F) := smulLeftCLM F (bumpR R) f
+def truncate (R : ℝ) : 𝓢(E, F) := smulLeftCLM F (bumpR R) f
 
-@[simp] lemma truncate_apply {R : ℝ} (hR : 0 < R) (f : 𝓢(E, F)) (x : E) :
-    truncate f R x = bumpR R x • f x :=
+@[simp]
+lemma truncate_apply (hR : 0 < R) (x : E) : truncate f R x = bumpR R x • f x :=
   smulLeftCLM_apply_apply (hasTemperateGrowth_bumpR hR) f x
 
-lemma hasCompactSupport_truncate {R : ℝ} (hR : 0 < R) (f : 𝓢(E, F)) :
-    HasCompactSupport (truncate f R : E → F) := by
-  have hfun : (truncate f R : E → F) = (bumpR R : E → ℝ) • (f : E → F) := by
-    funext x; exact truncate_apply hR f x
-  rw [hfun]
-  exact (hasCompactSupport_bumpR hR).smul_right
+lemma hasCompactSupport_truncate (hR : 0 < R) : HasCompactSupport (truncate f R : E → F) := by
+  have hfun : (truncate f R : E → F) = (bumpR R : E → ℝ) • f := by
+    funext x; exact truncate_apply f hR x
+  simpa [hfun] using (hasCompactSupport_bumpR hR).smul_right
 
 /-- **The heart of the argument.** For each seminorm index `(k, n)`, the seminorm of the truncation
 error tends to `0` as `R → ∞`. -/
-lemma tendsto_seminorm_truncate_sub (f : 𝓢(E, F)) (k n : ℕ) :
+lemma tendsto_seminorm_truncate_sub (k n : ℕ) :
     Tendsto (fun R : ℝ => SchwartzMap.seminorm ℝ k n (truncate f R - f)) atTop (𝓝 0) := by
   obtain ⟨A, hA0, hA⟩ := exists_bound_iteratedFDeriv_χ₀ (E := E) n
   set A' : ℝ := max 1 A with hA'def
   have hA'1 : (1 : ℝ) ≤ A' := le_max_left _ _
   -- The constant controlling the truncation error.
-  set C : ℝ := A' * ∑ i ∈ Finset.range (n + 1),
+  set C : ℝ := A' * ∑ i ∈ range (n + 1),
     (n.choose i : ℝ) * SchwartzMap.seminorm ℝ (k + 1) (n - i) f with hCdef
-  have hC0 : 0 ≤ C :=
-    mul_nonneg (by linarith) (Finset.sum_nonneg fun i _ =>
-      mul_nonneg (by positivity) (apply_nonneg _ _))
-  -- The core quantitative estimate: the seminorm of the error is `O(R⁻¹)`.
   have hbound : ∀ R : ℝ, 1 ≤ R →
       SchwartzMap.seminorm ℝ k n (truncate f R - f) ≤ C * R⁻¹ := by
     intro R hR1
-    have hR : (0 : ℝ) < R := by linarith
-    have hRinv0 : (0 : ℝ) ≤ R⁻¹ := by positivity
-    have hRinv1 : R⁻¹ ≤ 1 := by rw [inv_le_one₀ hR]; exact hR1
+    have hR : 0 < R := by linarith
+    have hRinv0 : 0 ≤ R⁻¹ := by positivity
+    have hRinv1 : R⁻¹ ≤ 1 := by simp [inv_le_one₀ hR, hR1]
     have hcoe : ⇑(truncate f R - f) = fun x => (bumpR R x - 1) • f x := by
-      funext x; rw [sub_apply, truncate_apply hR, sub_smul, one_smul]
-    refine SchwartzMap.seminorm_le_bound ℝ k n _ (by positivity) fun x => ?_
+      funext x; simp [truncate_apply f hR, sub_smul]
+    refine seminorm_le_bound ℝ k n _ (by positivity) fun x => ?_
     rw [hcoe]
     -- Uniform bound on the derivatives of `bumpR R - 1`.
-    have hbd : ∀ i, i ≤ n → ‖iteratedFDeriv ℝ i (fun y : E => bumpR R y - 1) x‖ ≤ A' := by
+    have hbd : ∀ i, i ≤ n → ‖iteratedFDeriv ℝ i (bumpR R · - 1) x‖ ≤ A' := by
       intro i hi
       rcases Nat.eq_zero_or_pos i with rfl | hi0
       · rw [norm_iteratedFDeriv_zero, Real.norm_eq_abs, abs_sub_comm,
           abs_of_nonneg (by linarith [bumpR_le_one R x])]
         linarith [bumpR_nonneg R x]
-      · have hEq : iteratedFDeriv ℝ i (fun y : E => bumpR R y - 1) x
-            = iteratedFDeriv ℝ i (bumpR R) x := by
-          rw [show (fun y : E => bumpR R y - 1) = (bumpR R : E → ℝ) - fun _ => (1 : ℝ) from rfl,
+      · have hEq : iteratedFDeriv ℝ i (bumpR R · - 1) x = iteratedFDeriv ℝ i (bumpR R) x := by
+          rw [show (bumpR R · - 1) = (bumpR R : E → ℝ) - fun _ => 1 from rfl,
             iteratedFDeriv_sub_apply
-              ((contDiff_bumpR R).contDiffAt.of_le (by exact_mod_cast le_top)) contDiffAt_const,
-            iteratedFDeriv_const_of_ne (by omega : i ≠ 0)]
+              ((contDiff_bumpR R).contDiffAt.of_le (mod_cast le_top)) contDiffAt_const,
+            iteratedFDeriv_const_of_ne (by omega)]
           simp
-        rw [hEq]
-        calc ‖iteratedFDeriv ℝ i (bumpR R) x‖
-            ≤ R⁻¹ ^ i * ‖iteratedFDeriv ℝ i (χ₀ : E → ℝ) (R⁻¹ • x)‖ :=
-              norm_iteratedFDeriv_bumpR_le hR i x
-          _ ≤ 1 * A := by gcongr; exacts [pow_le_one₀ hRinv0 hRinv1, hA i hi _]
-          _ ≤ A' := by rw [one_mul]; exact le_max_right _ _
+        grw [hEq, norm_iteratedFDeriv_bumpR_le hR i x, pow_le_one₀ hRinv0 hRinv1, hA i hi _]
+        grind
     rcases lt_or_ge ‖x‖ R with hxR | hxR
-    · -- On `‖x‖ < R` the error vanishes near `x`, so all its derivatives vanish.
-      have hzero : iteratedFDeriv ℝ n (fun y : E => (bumpR R y - 1) • f y) x = 0 := by
-        have heq0 : (fun y : E => (bumpR R y - 1) • f y) =ᶠ[𝓝 x] 0 := by
+    · have hzero : iteratedFDeriv ℝ n (fun y ↦ (bumpR R y - 1) • f y) x = 0 := by
+        have heq0 : (fun y ↦ (bumpR R y - 1) • f y) =ᶠ[𝓝 x] 0 := by
           filter_upwards [(isOpen_lt continuous_norm continuous_const).mem_nhds hxR] with y hy
-          rw [bumpR_eq_one hR hy.le]; simp
-        rw [(Filter.EventuallyEq.iteratedFDeriv ℝ heq0 n).eq_of_nhds]; simp
+          simp [bumpR_eq_one hR hy.le]
+        simp [(EventuallyEq.iteratedFDeriv ℝ heq0 n).eq_of_nhds]
       rw [hzero, norm_zero, mul_zero]; positivity
-    · -- On `‖x‖ ≥ R`, expand by the Leibniz rule and bound each term.
-      have hxpos : (0 : ℝ) < ‖x‖ := by linarith
-      have hxinv : ‖x‖⁻¹ ≤ R⁻¹ := by gcongr
-      calc ‖x‖ ^ k * ‖iteratedFDeriv ℝ n (fun y : E => (bumpR R y - 1) • f y) x‖
-          ≤ ‖x‖ ^ k * ∑ i ∈ Finset.range (n + 1), (n.choose i : ℝ) *
-              ‖iteratedFDeriv ℝ i (fun y : E => bumpR R y - 1) x‖ *
-              ‖iteratedFDeriv ℝ (n - i) (f : E → F) x‖ := by
+    · have : (0 : ℝ) < ‖x‖ := by linarith
+      calc
+        _ ≤ ‖x‖ ^ k * ∑ i ∈ range (n + 1), (n.choose i : ℝ) *
+              ‖iteratedFDeriv ℝ i (bumpR R · - 1) x‖ * ‖iteratedFDeriv ℝ (n - i) f x‖ := by
             gcongr
             exact norm_iteratedFDeriv_smul_le ((contDiff_bumpR R).sub contDiff_const)
-              (f.smooth ⊤) x (by exact_mod_cast le_top)
-        _ = ∑ i ∈ Finset.range (n + 1), (n.choose i : ℝ) *
-              ‖iteratedFDeriv ℝ i (fun y : E => bumpR R y - 1) x‖ *
-              (‖x‖ ^ k * ‖iteratedFDeriv ℝ (n - i) (f : E → F) x‖) := by
-            rw [Finset.mul_sum]; exact Finset.sum_congr rfl fun i _ => by ring
-        _ ≤ ∑ i ∈ Finset.range (n + 1), (n.choose i : ℝ) * A' *
+              (f.smooth ⊤) x (mod_cast le_top)
+        _ = ∑ i ∈ range (n + 1), (n.choose i : ℝ) * ‖iteratedFDeriv ℝ i (bumpR R · - 1) x‖ *
+              (‖x‖ ^ k * ‖iteratedFDeriv ℝ (n - i) f x‖) := by
+            rw [mul_sum]; exact sum_congr rfl fun _ _ ↦ by ring
+        _ ≤ ∑ i ∈ range (n + 1), (n.choose i : ℝ) * A' *
               (SchwartzMap.seminorm ℝ (k + 1) (n - i) f * R⁻¹) := by
-            refine Finset.sum_le_sum fun i hi => ?_
-            have hi' : i ≤ n := by simpa [Nat.lt_succ_iff] using Finset.mem_range.mp hi
-            have hdecay : ‖x‖ ^ k * ‖iteratedFDeriv ℝ (n - i) (f : E → F) x‖
-                ≤ SchwartzMap.seminorm ℝ (k + 1) (n - i) f * R⁻¹ := by
-              have hs := SchwartzMap.le_seminorm ℝ (k + 1) (n - i) f x
-              have hrw : ‖x‖ ^ k * ‖iteratedFDeriv ℝ (n - i) (f : E → F) x‖
-                  = (‖x‖ ^ (k + 1) * ‖iteratedFDeriv ℝ (n - i) (f : E → F) x‖) * ‖x‖⁻¹ := by
-                rw [pow_succ]; field_simp
-              rw [hrw]
-              calc (‖x‖ ^ (k + 1) * ‖iteratedFDeriv ℝ (n - i) (f : E → F) x‖) * ‖x‖⁻¹
-                  ≤ SchwartzMap.seminorm ℝ (k + 1) (n - i) f * ‖x‖⁻¹ := by gcongr
-                _ ≤ SchwartzMap.seminorm ℝ (k + 1) (n - i) f * R⁻¹ := by gcongr
-            have hb := hbd i hi'
-            gcongr
-        _ = C * R⁻¹ := by
-            rw [hCdef, Finset.mul_sum, Finset.sum_mul]
-            exact Finset.sum_congr rfl fun i _ => by ring
-  -- Squeeze `0 ≤ seminorm ≤ C * R⁻¹` between two sequences tending to `0`.
-  refine tendsto_of_tendsto_of_tendsto_of_le_of_le' (h := fun R : ℝ => C * R⁻¹)
-    tendsto_const_nhds ?_ ?_ ?_
+            refine sum_le_sum fun _ _ ↦ ?_
+            grw [hbd _ (by grind), ← le_seminorm ℝ _ _ f x, pow_succ, hxR]
+            field_simp; rfl
+        _ = _ := by simpa [hCdef, mul_sum, sum_mul] using sum_congr rfl fun _ _ ↦ by ring
+  apply tendsto_of_tendsto_of_tendsto_of_le_of_le' (h := (C * ·⁻¹)) tendsto_const_nhds
   · simpa using tendsto_inv_atTop_zero.const_mul C
   · filter_upwards with R using apply_nonneg _ _
   · filter_upwards [eventually_ge_atTop 1] with R hR using hbound R hR
 
 /-- The truncations converge to `f` in the Schwartz topology as `R → ∞`. -/
-lemma tendsto_truncate (f : 𝓢(E, F)) :
-    Tendsto (fun R : ℝ => truncate f R) atTop (𝓝 f) := by
-  rw [(schwartz_withSeminorms ℝ E F).tendsto_nhds (fun R : ℝ ↦ truncate f R) f]
+lemma tendsto_truncate : Tendsto (truncate f) atTop (𝓝 f) := by
+  rw [(schwartz_withSeminorms ℝ E F).tendsto_nhds (truncate f) f]
   rintro ⟨k, n⟩ ε hε
   simpa using (tendsto_seminorm_truncate_sub f k n).eventually (isOpen_Iio.mem_nhds hε)
 
@@ -273,6 +232,6 @@ theorem dense_hasCompactSupport :
   intro f
   refine mem_closure_of_tendsto (tendsto_truncate f) ?_
   filter_upwards [eventually_gt_atTop 0] with R hR
-  exact hasCompactSupport_truncate hR f
+  exact hasCompactSupport_truncate f hR
 
 end SchwartzMap

@@ -158,7 +158,6 @@ lemma continuous_LSeries_aux (hf : LSeriesSummable f σ') :
     simp [norm_term_eq]
   exact continuous_tsum l1 hf.norm (fun n x => le_of_eq (l2 n x))
 
--- Here compact support is used but perhaps it is not necessary
 set_option backward.isDefEq.respectTransparency false in
 lemma limiting_fourier_aux (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1)) {s | 1 < s.re})
     (hf : ∀ (σ' : ℝ), 1 < σ' → LSeriesSummable f σ') (ψ : ℝ → ℂ) (hψ1 : ContDiff ℝ 2 ψ)
@@ -426,10 +425,10 @@ theorem limiting_fourier_lim1 (hcheby : cheby f) (ψ : ℝ → ℂ) (hψ : IsW21
     Tendsto (fun σ' : ℝ ↦
         ∑' n, term f σ' n * 𝓕 ψ (1 / (2 * π) * log (n / x))) (𝓝[>] 1)
       (𝓝 (∑' n, f n / n * 𝓕 ψ (1 / (2 * π) * log (n / x)))) := by
-  obtain ⟨C, hC⟩ := decay_bounds_cor hψ
-  have : 0 ≤ C := by simpa using (norm_nonneg _).trans (hC 0)
+  have hC := hψ.decay_bounds_key
+  have : 0 ≤ W21.norm ψ := W21.norm_nonneg
   refine tendsto_tsum_of_dominated_convergence
-    (limiting_fourier_lim1_aux hcheby hx C this) (fun n => ?_) ?_
+    (limiting_fourier_lim1_aux hcheby hx (W21.norm ψ) this) (fun n => ?_) ?_
   · apply Tendsto.mul_const
     by_cases h : n = 0 <;> simp only [term, h, ↓reduceIte, CharP.cast_eq_zero, div_zero,
       tendsto_const_nhds_iff]
@@ -458,7 +457,7 @@ theorem limiting_fourier_lim2 (A : ℝ) (ψ : ℝ → ℂ) (hψ : IsW21 ψ) (hx 
     Tendsto (fun σ' ↦ A * ↑(x ^ (1 - σ')) *
         ∫ u in Ici (-log x), rexp (-u * (σ' - 1)) * 𝓕 ψ (u / (2 * π)))
       (𝓝[>] 1) (𝓝 (A * ∫ u in Ici (-log x), 𝓕 ψ (u / (2 * π)))) := by
-  obtain ⟨C, hC⟩ := decay_bounds_cor hψ
+  have hC := hψ.decay_bounds_key
   apply Tendsto.mul
   · suffices h : Tendsto (fun σ' : ℝ ↦ ofReal (x ^ (1 - σ'))) (𝓝[>] 1) (𝓝 1) by
       simpa using h.const_mul ↑A
@@ -469,10 +468,10 @@ theorem limiting_fourier_lim2 (A : ℝ) (ψ : ℝ → ℂ) (hψ : IsW21 ψ) (hx 
       tendsto_nhdsWithin_of_tendsto_nhds (by simpa using this.const_sub 1)
     simpa using tendsto_const_nhds.rpow this (Or.inl (zero_lt_one.trans_le hx).ne.symm)
   · refine tendsto_integral_filter_of_dominated_convergence _ ?_ ?_
-      (limiting_fourier_lim2_aux x C) ?_
+      (limiting_fourier_lim2_aux x (W21.norm ψ)) ?_
     · apply Eventually.of_forall; intro σ'
       apply Continuous.aestronglyMeasurable
-      have := continuous_FourierIntegral hψ
+      have := hψ.continuous_FourierIntegral
       continuity
     · apply eventually_of_mem (U := Ioo 1 2)
       · apply Ioo_mem_nhdsGT_of_mem; simp
@@ -562,8 +561,8 @@ lemma limiting_fourier (hcheby : cheby f)
     ∑' n, f n / n * 𝓕 ψ (1 / (2 * π) * log (n / x)) -
       A * ∫ u in Set.Ici (-log x), 𝓕 ψ (u / (2 * π)) =
       ∫ (t : ℝ), (G (1 + t * I)) * (ψ t) * x ^ (t * I) := by
-  have l1 := limiting_fourier_lim1 hcheby ψ (IsW21.of_hasCompactSupport hψ1 hψ2) (by linarith)
-  have l2 := limiting_fourier_lim2 A ψ (IsW21.of_hasCompactSupport hψ1 hψ2) hx
+  have l1 := limiting_fourier_lim1 hcheby ψ (isW21_of_hasCompactSupport hψ1 hψ2) (by linarith)
+  have l2 := limiting_fourier_lim2 A ψ (isW21_of_hasCompactSupport hψ1 hψ2) hx
   have l3 := limiting_fourier_lim3 hG ψ hψ1 hψ2 hx
   apply tendsto_nhds_unique_of_eventuallyEq (l1.sub l2) l3
   simpa [eventuallyEq_nhdsWithin_iff] using!
@@ -621,7 +620,7 @@ variable (f x) in
 lemma summable_fourier_aux (ψ : ℝ → ℂ) (hψ : IsW21 ψ) (i : ℕ) :
     ‖f i / i * 𝓕 ψ (1 / (2 * π) * log (i / x))‖ ≤
       W21.norm ψ * (‖f i‖ / i * (1 + (1 / (2 * π) * log (i / x)) ^ 2)⁻¹) := by
-  convert! mul_le_mul_of_nonneg_left (decay_bounds_key hψ (1 / (2 * π) * log (i / x)))
+  convert! mul_le_mul_of_nonneg_left (hψ.decay_bounds_key (1 / (2 * π) * log (i / x)))
     (norm_nonneg (f i / i)) using 1
   · simp
   · simp only [W21.norm, mul_inv_rev, one_div, Complex.norm_div, RCLike.norm_natCast]
@@ -659,7 +658,7 @@ lemma bound_I1' {C : ℝ} (x : ℝ) (hx : 1 ≤ x) (ψ : ℝ → ℂ) (hψ : IsW
 lemma bound_I2 (x : ℝ) (ψ : ℝ → ℂ) (hψ : IsW21 ψ) :
     ‖∫ u in Set.Ici (-log x), 𝓕 ψ (u / (2 * π))‖ ≤ W21.norm ψ * (2 * π ^ 2) := by
   have key a : ‖𝓕 ψ (a / (2 * π))‖ ≤ W21.norm ψ * (1 + (a / (2 * π)) ^ 2)⁻¹ :=
-    decay_bounds_key hψ _
+    hψ.decay_bounds_key _
   have twopi : 0 ≤ 2 * π := by simp [pi_nonneg]
   have l3 : Integrable (fun a ↦ (1 + (a / (2 * π)) ^ 2)⁻¹) :=
     integrable_inv_one_add_sq.comp_div (by norm_num [pi_ne_zero])
@@ -667,8 +666,7 @@ lemma bound_I2 (x : ℝ) (ψ : ℝ → ℂ) (hψ : IsW21 ψ) :
     exact (l3.const_mul _).integrableOn
   have l1 : IntegrableOn (fun i ↦ ‖𝓕 ψ (i / (2 * π))‖) (Ici (-log x)) := by
     refine ((l3.const_mul (W21.norm ψ)).mono' ?_ ?_).integrableOn
-    · exact (((continuous_FourierIntegral hψ).comp
-        (continuous_id.div_const _)).norm).aestronglyMeasurable
+    · fun_prop
     · simp only [norm_norm, key]; simp
   have l5 : 0 ≤ᵐ[volume] fun a ↦ (1 + (a / (2 * π)) ^ 2)⁻¹ := by
     apply Eventually.of_forall; intro x; positivity
@@ -716,7 +714,7 @@ lemma limiting_cor_W21 (ψ : ℝ → ℂ) (hψ : IsW21 ψ) (hf : ∀ (σ' : ℝ)
     rw [hΨdef]
     refine HasCompactSupport.mul_right ?_
     exact (hgs.comp_smul (inv_ne_zero hR)).comp_left (g := ofReal) rfl
-  have hΨW {R : ℝ} (hR : R ≠ 0) : IsW21 (Ψ R) := IsW21.of_hasCompactSupport (hΨ1 R) (hΨ2 hR)
+  have hΨW {R : ℝ} (hR : R ≠ 0) : IsW21 (Ψ R) := isW21_of_hasCompactSupport (hΨ1 R) (hΨ2 hR)
   have key (R : ℝ) (hR : R ≠ 0) : Tendsto (fun x ↦ S x (Ψ R)) atTop (𝓝 0) :=
     limiting_cor (Ψ R) (hΨ1 R) (hΨ2 hR) hf hcheby hG hG'
   obtain ⟨C, hcheby⟩ := hcheby
@@ -748,8 +746,8 @@ lemma limiting_cor_W21 (ψ : ℝ → ℂ) (hψ : IsW21 ψ) (hf : ∀ (σ' : ℝ)
     simp only [Real.fourier_eq', neg_mul, RCLike.inner_apply', conj_trivial, ofReal_neg,
       ofReal_mul, ofReal_ofNat, Pi.sub_apply, smul_eq_mul, mul_sub]
     apply integral_sub
-    · apply hψ.hf.bdd_mul (c := 1) l1; simp [Complex.norm_exp]
-    · apply (hΨW hR0).hf.bdd_mul (c := 1) l1; simp [Complex.norm_exp]
+    · apply hψ.integrable.bdd_mul (c := 1) l1; simp [Complex.norm_exp]
+    · apply (hΨW hR0).integrable.bdd_mul (c := 1) l1; simp [Complex.norm_exp]
   have S1_sub : S1 x (ψ - Ψ R) = S1 x ψ - S1 x (Ψ R) := by
     simp only [one_div, mul_inv_rev, S1_sub_1, mul_sub, S1]; apply Summable.tsum_sub
     · have h := summable_fourier x (by positivity) ψ hψ ⟨_, hcheby⟩
@@ -761,8 +759,8 @@ lemma limiting_cor_W21 (ψ : ℝ → ℂ) (hψ : IsW21 ψ) (hf : ∀ (σ' : ℝ)
   have S2_sub : S2 x (ψ - Ψ R) = S2 x ψ - S2 x (Ψ R) := by
     simp only [S1_sub_1, S2]; rw [integral_sub]
     · ring
-    · exact integrable_fourier hψ (by positivity) |>.restrict
-    · exact integrable_fourier (hΨW hR0) (by positivity) |>.restrict
+    · exact hψ.integrable_fourier (by positivity) |>.restrict
+    · exact (hΨW hR0).integrable_fourier (by positivity) |>.restrict
   have S_sub : S x (ψ - Ψ R) = S x ψ - S x (Ψ R) := by simp [S, S1_sub, S2_sub]; ring
   simpa [S_sub, Ψ] using norm_add_le _ _ |>.trans_lt (_root_.add_lt_add key3 key)
 
@@ -771,7 +769,7 @@ lemma limiting_cor_schwartz (ψ : 𝓢(ℝ, ℂ)) (hf : ∀ (σ' : ℝ), 1 < σ'
     (hG' : Set.EqOn G (fun s ↦ LSeries f s - A / (s - 1)) {s | 1 < s.re}) :
     Tendsto (fun x : ℝ ↦ ∑' n, f n / n * 𝓕 ψ (1 / (2 * π) * log (n / x)) -
       A * ∫ u in Set.Ici (-log x), 𝓕 ψ (u / (2 * π))) atTop (𝓝 0) :=
-  limiting_cor_W21 ψ (IsW21.of_schwartz ψ) hf hcheby hG hG'
+  limiting_cor_W21 ψ (isW21_of_schwartz ψ) hf hcheby hG hG'
 
 lemma comp_exp_support0 {Ψ : ℝ → ℂ} (hplus : closure (Function.support Ψ) ⊆ Ioi 0) :
     ∀ᶠ x in 𝓝 0, Ψ x = 0 :=

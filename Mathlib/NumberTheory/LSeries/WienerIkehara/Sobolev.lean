@@ -27,11 +27,18 @@ open Real Complex MeasureTheory Filter Topology BoundedContinuousFunction Schwar
   FourierTransform
 open scoped ContDiff
 
+@[continuity, fun_prop]
+lemma continuous_FourierIntegral {f : ℝ → ℂ} (hf : Integrable f) :
+    Continuous (𝓕 f) :=
+  VectorFourier.fourierIntegral_continuous continuous_fourierChar
+    (by simp [RCLike.inner_apply', -RCLike.inner_apply, continuous_mul])
+    hf
+
 /-- `f` lies in the Sobolev space `W^{2,1}(ℝ)`: it is `C²`, and it and its first two
 derivatives are integrable.  This is a `Prop`-valued replacement for the bundled space `W21`. -/
 structure IsW21 (f : ℝ → ℂ) : Prop where
   smooth : ContDiff ℝ 2 f
-  integrable : ∀ ⦃k⦄, k ≤ 2 → Integrable (iteratedDeriv k f)
+  integrable' : ∀ ⦃k⦄, k ≤ 2 → Integrable (iteratedDeriv k f)
 
 namespace W21
 
@@ -39,43 +46,57 @@ noncomputable def norm (f : ℝ → ℂ) : ℝ :=
     (∫ v, ‖f v‖) + (4 * π ^ 2)⁻¹ * (∫ v, ‖deriv (deriv f) v‖)
 
 lemma norm_nonneg {f : ℝ → ℂ} : 0 ≤ norm f :=
-  add_nonneg (integral_nonneg (fun t => by simp))
-    (mul_nonneg (by positivity) (integral_nonneg (fun t => by simp)))
+  add_nonneg (integral_nonneg (fun _ ↦ by simp))
+    (mul_nonneg (by positivity) (integral_nonneg (fun _ ↦ by simp)))
 
 end W21
 
 @[fun_prop]
-lemma integrable_iteratedDeriv_Schwarz {f : 𝓢(ℝ, ℂ)} {n : ℕ} : Integrable (iteratedDeriv n f) := by
+lemma integrable_iteratedDeriv_Schwarz {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+    {f : 𝓢(ℝ, E)} {n : ℕ} : Integrable (iteratedDeriv n f) := by
   induction n generalizing f with
   | zero => exact f.integrable
-  | succ n ih => simpa [iteratedDeriv_succ'] using! ih (f := SchwartzMap.derivCLM ℝ ℂ f)
+  | succ n ih => simpa [iteratedDeriv_succ'] using! ih (f := f.derivCLM ℝ E)
 
 namespace IsW21
 
 variable {f g : ℝ → ℂ}
 
 @[fun_prop]
-lemma hf (h : IsW21 f) : Integrable f := by
-  simpa using h.integrable zero_le_two
+lemma integrable (h : IsW21 f) : Integrable f := by
+  simpa using h.integrable' zero_le_two
 
 @[fun_prop]
-lemma hf' (h : IsW21 f) : Integrable (deriv f) := by
-  simpa [iteratedDeriv_succ, iteratedDeriv_zero] using h.integrable one_le_two
+lemma integrable_deriv (h : IsW21 f) : Integrable (deriv f) := by
+  simpa using h.integrable' one_le_two
 
 @[fun_prop]
-lemma hf'' (h : IsW21 f) : Integrable (deriv (deriv f)) := by
-  simpa [iteratedDeriv_succ, iteratedDeriv_zero] using h.integrable le_rfl
+lemma integrable_deriv_deriv (h : IsW21 f) : Integrable (deriv (deriv f)) := by
+  simpa [iteratedDeriv_succ] using h.integrable' le_rfl
 
 lemma sub (hf : IsW21 f) (hg : IsW21 g) : IsW21 (f - g) where
   smooth := hf.smooth.sub hg.smooth
-  integrable k hk := by
-    have h1 : ContDiff ℝ k f := hf.smooth.of_le (by simp [hk])
-    have h2 : ContDiff ℝ k g := hg.smooth.of_le (by simp [hk])
-    have h3 : iteratedDeriv k (f - g) = iteratedDeriv k f - iteratedDeriv k g := by
-      ext x; exact iteratedDeriv_sub h1.contDiffAt h2.contDiffAt
-    simpa [h3] using (hf.integrable hk).sub (hg.integrable hk)
+  integrable' k hk := by
+    convert (hf.integrable' hk).sub (hg.integrable' hk)
+    ext
+    exact iteratedDeriv_sub (hf.smooth.of_le (by simp [hk])).contDiffAt
+      (hg.smooth.of_le (by simp [hk])).contDiffAt
 
-lemma of_hasCompactSupport (h1 : ContDiff ℝ 2 f) (h2 : HasCompactSupport f) :
+lemma decay_bounds_key (hf : IsW21 f) (u : ℝ) :
+    ‖𝓕 f u‖ ≤ W21.norm f * (1 + u ^ 2)⁻¹ := by
+  rw [← div_eq_mul_inv, le_div_iff₀ (by positivity : 0 < 1 + u ^ 2), mul_comm]
+  simpa [W21.norm, iteratedDeriv_succ] using
+    one_add_sq_mul_norm_fourier_le hf.smooth hf.integrable' u
+
+lemma integrable_fourier (hf : IsW21 f) {c : ℝ} (hc : c ≠ 0) :
+    Integrable fun u ↦ 𝓕 f (u / c) := by
+  apply Integrable.mono' (g := fun u => (W21.norm f) / (1 + (u / c) ^ 2)) ?_ (by fun_prop) ?_
+  · simpa using! (integrable_inv_one_add_sq.comp_div hc).const_mul (W21.norm f)
+  · exact Eventually.of_forall (fun _ ↦ decay_bounds_key hf _)
+
+end IsW21
+
+lemma isW21_of_hasCompactSupport {f : ℝ → ℂ} (h1 : ContDiff ℝ 2 f) (h2 : HasCompactSupport f) :
     IsW21 f := by
   refine ⟨h1, fun k hk ↦ ?_⟩; match k with
   | 0 => exact h1.continuous.integrable_of_hasCompactSupport h2
@@ -83,36 +104,11 @@ lemma of_hasCompactSupport (h1 : ContDiff ℝ 2 f) (h2 : HasCompactSupport f) :
   | 2 => simpa [iteratedDeriv_succ] using
     (h1.iterate_deriv' 0 2).continuous.integrable_of_hasCompactSupport h2.deriv.deriv
 
-lemma of_schwartz (f : 𝓢(ℝ, ℂ)) : IsW21 f :=
+lemma isW21_of_schwartz (f : 𝓢(ℝ, ℂ)) : IsW21 f :=
   ⟨f.smooth 2, fun _ _ ↦ integrable_iteratedDeriv_Schwarz⟩
 
-end IsW21
 
-variable {ψ : ℝ → ℂ} {c : ℝ}
 
-lemma decay_bounds_key (hψ : IsW21 ψ) (u : ℝ) :
-    ‖𝓕 ψ u‖ ≤ W21.norm ψ * (1 + u ^ 2)⁻¹ := by
-  rw [← div_eq_mul_inv, le_div_iff₀ (by positivity : 0 < 1 + u ^ 2), mul_comm]
-  simpa [W21.norm, iteratedDeriv_succ, iteratedDeriv_zero] using
-    one_add_sq_mul_norm_fourier_le hψ.smooth (fun k hk ↦ hψ.integrable hk) u
-
-lemma decay_bounds_cor (hψ : IsW21 ψ) :
-    ∃ C : ℝ, ∀ u, ‖𝓕 ψ u‖ ≤ C / (1 + u ^ 2) := by
-  simpa only [div_eq_mul_inv] using ⟨_, decay_bounds_key hψ⟩
-
-@[continuity, fun_prop] lemma continuous_FourierIntegral (hψ : IsW21 ψ) :
-    Continuous (𝓕 ψ) :=
-  VectorFourier.fourierIntegral_continuous continuous_fourierChar
-    (by simp only [innerₗ_apply_apply, RCLike.inner_apply', conj_trivial, continuous_mul])
-    hψ.hf
-
-lemma integrable_fourier (hψ : IsW21 ψ) (hc : c ≠ 0) :
-    Integrable fun u ↦ 𝓕 ψ (u / c) := by
-  obtain ⟨C, h⟩ := decay_bounds_cor hψ
-  apply Integrable.mono' (g := fun u => C / (1 + (u / c) ^ 2)) ?_ ?_ ?_
-  · simpa using! (integrable_inv_one_add_sq.comp_div hc).const_mul C
-  · exact Continuous.aestronglyMeasurable (by fun_prop)
-  · exact Eventually.of_forall (fun _ ↦ h _)
 /-- If `g` is a smooth, compactly supported truncation which equals `1` near the origin and
 takes values in `[0, 1]`, then `v ↦ g (R⁻¹ * v) * ψ v` converges to `ψ` in the `W^{2,1}` norm
 as `R → ∞`. -/
@@ -141,20 +137,16 @@ theorem W21_approximation {ψ : ℝ → ℂ} (hψ : IsW21 ψ) {g : ℝ → ℝ} 
     simpa [hh, hh', sub_eq_add_neg] using (dscale g hgd R v).const_sub 1
   have dh' (R v : ℝ) : HasDerivAt (h' R) (h'' R v) v := by
     simpa [hh', hh'', Pi.neg_def] using ((dscale (deriv g) hg'd R v).mul_const R⁻¹).neg
-  have ch {R} : Continuous (fun v ↦ (h R v : ℂ)) := by
-    simp only [hh]; fun_prop
-  have ch' {R} : Continuous (fun v ↦ (h' R v : ℂ)) := by
-    simp only [hh']; fun_prop
-  have ch'' {R} : Continuous (fun v ↦ (h'' R v : ℂ)) := by
-    simp only [hh'']; fun_prop
+  have ch {R} : Continuous (fun v ↦ (h R v : ℂ)) := by fun_prop
+  have ch' {R} : Continuous (fun v ↦ (h' R v : ℂ)) := by fun_prop
+  have ch'' {R} : Continuous (fun v ↦ (h'' R v : ℂ)) := by fun_prop
   have hh1 (R v : ℝ) : |h R v| ≤ 1 := by
-    rw [abs_le]
-    constructor <;> [linarith [hg1 (R⁻¹ * v)]; linarith [hgnn (R⁻¹ * v)]]
+    grind [abs_le, hg1 (R⁻¹ * v), hgnn (R⁻¹ * v)]
   have vR (v : ℝ) : Tendsto (fun R : ℝ ↦ R⁻¹ * v) atTop (𝓝 0) := by
     simpa using tendsto_inv_atTop_zero.mul_const v
   have eh (v : ℝ) : ∀ᶠ R in atTop, h R v = 0 := by
     filter_upwards [(vR v).eventually hg0] with R hR
-    simp [hh, hR]
+    simp [*]
   have evg' : deriv g =ᶠ[𝓝 0] 0 := by
     filter_upwards [hg0.deriv] with x hx using by simpa using hx
   have evg'' : deriv (deriv g) =ᶠ[𝓝 0] 0 := by
@@ -178,7 +170,7 @@ theorem W21_approximation {ψ : ℝ → ℂ} (hψ : IsW21 ψ) {g : ℝ → ℝ} 
     have e4 : ∀ᵐ (a : ℝ), Tendsto (fun n ↦ F n a) atTop (𝓝 0) := by
       refine .of_forall fun v ↦ tendsto_nhds_of_eventually_eq ?_
       filter_upwards [eh v] with R hR; simp [F, hR]
-    simpa [F] using tendsto_integral_filter_of_dominated_convergence _ e1 e2 hψ.hf.norm e4
+    simpa [F] using tendsto_integral_filter_of_dominated_convergence _ e1 e2 hψ.integrable.norm e4
   · let F R v := ‖(h'' R v : ℂ) * ψ v + 2 * (h' R v : ℂ) * deriv ψ v +
       (h R v : ℂ) * deriv (deriv ψ) v‖
     convert_to Tendsto (fun R ↦ ∫ (v : ℝ), F R v) atTop (𝓝 0)
@@ -238,7 +230,8 @@ theorem W21_approximation {ψ : ℝ → ℂ} (hψ : IsW21 ψ) {g : ℝ → ℝ} 
         exact hc1 v
       · simpa using mul_le_mul (hh1 R v) le_rfl (by simp) zero_le_one
     have e3 : Integrable bound volume :=
-      (((hψ.hf.norm).const_mul _).add ((hψ.hf'.norm).const_mul _)).add hψ.hf''.norm
+      (((hψ.integrable.norm).const_mul _).add ((hψ.integrable_deriv.norm).const_mul _)).add
+      hψ.integrable_deriv_deriv.norm
     have e4 : ∀ᵐ (a : ℝ), Tendsto (fun n ↦ F n a) atTop (𝓝 0) := by
       refine .of_forall fun v ↦ tendsto_norm_zero.comp <| (ZeroAtFilter.add ?_ ?_).add ?_
       · exact tendsto_nhds_of_eventually_eq (by filter_upwards [eh'' v] with R hR; simp [hR])
