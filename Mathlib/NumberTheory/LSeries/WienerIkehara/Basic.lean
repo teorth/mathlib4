@@ -417,9 +417,8 @@ lemma summable_weighted_log (hcheby : cheby f) {x : ℝ} (hx : 0 < x) :
   grw [weight_le_weight_one hx n]
   grind
 
-/-- A Fourier-decay control quantity for a Schwartz function, playing the role of `W21.norm` in
-`decay_bounds_key`: it is continuous in `ψ` (so it vanishes with the approximation rate) and
-controls the decay of `𝓕 ψ`. -/
+/-- A Fourier-decay control quantity for a Schwartz function: it is continuous in `ψ` (so it
+vanishes with the approximation rate) and controls the decay of `𝓕 ψ`. -/
 noncomputable def Qdecay (ψ : 𝓢(ℝ, ℂ)) : ℝ :=
   SchwartzMap.seminorm ℝ 0 0 (𝓕 ψ) +
     SchwartzMap.seminorm ℝ 2 0 (𝓕 ψ)
@@ -433,7 +432,7 @@ lemma continuous_Qdecay : Continuous Qdecay :=
     (((schwartz_withSeminorms ℝ ℝ ℂ).continuous_seminorm (2, 0)).comp
       (fourierTransformCLM ℂ).continuous)
 
-/-- Schwartz analogue of `decay_bounds_key`: `𝓕 ψ` decays like `(1 + u²)⁻¹` with constant
+/-- The Fourier transform of a Schwartz function decays like `(1 + u²)⁻¹`, with constant
 `Qdecay ψ`. -/
 lemma schwartz_decay_bound (ψ : 𝓢(ℝ, ℂ)) (u : ℝ) :
     ‖𝓕 ψ u‖ ≤ Qdecay ψ * (1 + u ^ 2)⁻¹ := by
@@ -448,7 +447,7 @@ lemma schwartz_decay_bound (ψ : 𝓢(ℝ, ℂ)) (u : ℝ) :
   unfold Qdecay
   nlinarith [h1, h2]
 
-/-- Schwartz analogue of `IsW21.integrable_fourier`. -/
+/-- The Fourier transform of a Schwartz function, rescaled by `c`, is integrable. -/
 lemma schwartz_integrable_fourier (ψ : 𝓢(ℝ, ℂ)) {c : ℝ} (hc : c ≠ 0) :
     Integrable fun u ↦ 𝓕 ψ (u / c) := by
   have hcont := (𝓕 ψ).continuous
@@ -750,8 +749,8 @@ lemma limiting_cor_schwartz (ψ : 𝓢(ℝ, ℂ)) (hf : ∀ (σ' : ℝ), 1 < σ'
     have hcont : Continuous fun φ : 𝓢(ℝ, ℂ) ↦ Qdecay (ψ - φ) :=
       continuous_Qdecay.comp (continuous_const.sub continuous_id)
     have hψmem : ψ ∈ {φ : 𝓢(ℝ, ℂ) | Qdecay (ψ - φ) < (ε / 2) / (1 + M)} := by
-      have h0 : Qdecay (ψ - ψ) = 0 := by simp [sub_self, Qdecay, _root_.map_zero]
-      simp only [Set.mem_setOf_eq, h0]; positivity
+      change Qdecay (ψ - ψ) < (ε / 2) / (1 + M)
+      rw [show Qdecay (ψ - ψ) = 0 by simp [sub_self, Qdecay, _root_.map_zero]]; positivity
     obtain ⟨φ, hφcs, hφQ⟩ := SchwartzMap.dense_hasCompactSupport.inter_open_nonempty _
       (isOpen_lt hcont continuous_const) ⟨ψ, hψmem⟩
     exact ⟨φ, hφQ, hφcs⟩
@@ -762,7 +761,7 @@ lemma limiting_cor_schwartz (ψ : 𝓢(ℝ, ℂ)) (hf : ∀ (σ' : ℝ), 1 < σ'
   -- `𝓕` is linear on Schwartz space.
   have hFsub (t : ℝ) : 𝓕 (ψ - φ) t = 𝓕 ψ t - 𝓕 φ t := by
     have h : 𝓕 (ψ - φ) t = (fourierTransformCLM ℂ (ψ - φ)) t := rfl
-    rw [h, map_sub, SchwartzMap.sub_apply]; rfl
+    rw [h, map_sub, sub_apply]; rfl
   have hsummψ : Summable fun n : ℕ ↦ f n / ↑n * 𝓕 ψ (1 / (2 * π) * log (↑n / x)) := by
     have h := summable_fourier x (by positivity) ψ ⟨_, hcheby⟩; rwa [summable_norm_iff] at h
   have hsummφ : Summable fun n : ℕ ↦ f n / ↑n * 𝓕 φ (1 / (2 * π) * log (↑n / x)) := by
