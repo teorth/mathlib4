@@ -6,7 +6,6 @@ Authors: Terence Tao
 module
 
 public import Mathlib.Analysis.Distribution.SchwartzSpace.Basic
-public import Mathlib.Analysis.Calculus.BumpFunction.InnerProduct
 public import Mathlib.Analysis.Calculus.BumpFunction.FiniteDimension
 
 import Mathlib.Analysis.Calculus.ContDiff.Bounds
@@ -65,7 +64,7 @@ noncomputable section
 
 namespace SchwartzMap
 
-variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [FiniteDimensional ℝ E]
+variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] [FiniteDimensional ℝ E]
 variable {F : Type*} [NormedAddCommGroup F] [NormedSpace ℝ F]
 variable {R : ℝ} (f : 𝓢(E, F))
 
@@ -159,17 +158,15 @@ lemma hasCompactSupport_truncate (hR : 0 < R) : HasCompactSupport (truncate f R 
 
 /-- **The heart of the argument.** For each seminorm index `(k, n)`, the seminorm of the truncation
 error tends to `0` as `R → ∞`. -/
-lemma tendsto_seminorm_truncate_sub (k n : ℕ) :
-    Tendsto (fun R : ℝ => SchwartzMap.seminorm ℝ k n (truncate f R - f)) atTop (𝓝 0) := by
+lemma tendsto_seminorm_truncate_sub (k n) :
+    Tendsto (fun R ↦ SchwartzMap.seminorm ℝ k n (truncate f R - f)) atTop (𝓝 0) := by
   obtain ⟨A, hA0, hA⟩ := exists_bound_iteratedFDeriv_χ₀ (E := E) n
   set A' : ℝ := max 1 A with hA'def
-  have hA'1 : (1 : ℝ) ≤ A' := le_max_left _ _
-  -- The constant controlling the truncation error.
-  set C : ℝ := A' * ∑ i ∈ range (n + 1),
-    (n.choose i : ℝ) * SchwartzMap.seminorm ℝ (k + 1) (n - i) f with hCdef
-  have hbound : ∀ R : ℝ, 1 ≤ R →
+  have hA'1 : 1 ≤ A' := le_max_left _ _
+  set C := A' * ∑ i ∈ range (n + 1),
+    (n.choose i) * SchwartzMap.seminorm ℝ (k + 1) (n - i) f with hCdef
+  have hbound (R) (hR1 : 1 ≤ R) :
       SchwartzMap.seminorm ℝ k n (truncate f R - f) ≤ C * R⁻¹ := by
-    intro R hR1
     have hR : 0 < R := by linarith
     have hRinv0 : 0 ≤ R⁻¹ := by positivity
     have hRinv1 : R⁻¹ ≤ 1 := by simp [inv_le_one₀ hR, hR1]
@@ -181,7 +178,7 @@ lemma tendsto_seminorm_truncate_sub (k n : ℕ) :
     have hbd : ∀ i, i ≤ n → ‖iteratedFDeriv ℝ i (bumpR R · - 1) x‖ ≤ A' := by
       intro i hi
       rcases Nat.eq_zero_or_pos i with rfl | hi0
-      · rw [norm_iteratedFDeriv_zero, Real.norm_eq_abs, abs_sub_comm,
+      · rw [norm_iteratedFDeriv_zero, norm_eq_abs, abs_sub_comm,
           abs_of_nonneg (by linarith [bumpR_le_one R x])]
         linarith [bumpR_nonneg R x]
       · have hEq : iteratedFDeriv ℝ i (bumpR R · - 1) x = iteratedFDeriv ℝ i (bumpR R) x := by
@@ -199,17 +196,17 @@ lemma tendsto_seminorm_truncate_sub (k n : ℕ) :
           simp [bumpR_eq_one hR hy.le]
         simp [(EventuallyEq.iteratedFDeriv ℝ heq0 n).eq_of_nhds]
       rw [hzero, norm_zero, mul_zero]; positivity
-    · have : (0 : ℝ) < ‖x‖ := by linarith
+    · have : 0 < ‖x‖ := by linarith
       calc
-        _ ≤ ‖x‖ ^ k * ∑ i ∈ range (n + 1), (n.choose i : ℝ) *
+        _ ≤ ‖x‖ ^ k * ∑ i ∈ range (n + 1), (n.choose i) *
               ‖iteratedFDeriv ℝ i (bumpR R · - 1) x‖ * ‖iteratedFDeriv ℝ (n - i) f x‖ := by
             gcongr
             exact norm_iteratedFDeriv_smul_le ((contDiff_bumpR R).sub contDiff_const)
               (f.smooth ⊤) x (mod_cast le_top)
-        _ = ∑ i ∈ range (n + 1), (n.choose i : ℝ) * ‖iteratedFDeriv ℝ i (bumpR R · - 1) x‖ *
+        _ = ∑ i ∈ range (n + 1), (n.choose i) * ‖iteratedFDeriv ℝ i (bumpR R · - 1) x‖ *
               (‖x‖ ^ k * ‖iteratedFDeriv ℝ (n - i) f x‖) := by
             rw [mul_sum]; exact sum_congr rfl fun _ _ ↦ by ring
-        _ ≤ ∑ i ∈ range (n + 1), (n.choose i : ℝ) * A' *
+        _ ≤ ∑ i ∈ range (n + 1), (n.choose i) * A' *
               (SchwartzMap.seminorm ℝ (k + 1) (n - i) f * R⁻¹) := by
             refine sum_le_sum fun _ _ ↦ ?_
             grw [hbd _ (by grind), ← le_seminorm ℝ _ _ f x, pow_succ, hxR]
