@@ -18,6 +18,7 @@ public import Mathlib.Analysis.Distribution.SchwartzSpace.CompactSupport
 public import Mathlib.NumberTheory.MulChar.Lemmas
 public import Mathlib.Topology.EMetricSpace.BoundedVariation
 
+import Mathlib.Algebra.Order.Chebyshev
 import Mathlib.Tactic.GRewrite.Elab
 /-!
 # The Wiener-Ikehara Tauberian theorem
@@ -224,24 +225,6 @@ lemma gg_le_one (i : ℕ) : gg x i ≤ 1 := by
 lemma one_div_two_pi_mem_Ioo : 1 / (2 * π) ∈ Ioo (-1) 1 := by
   have : (0:ℝ) < 1 / (2 * π) := by positivity
   refine ⟨by linarith, by field_simp; linarith [two_le_pi]⟩
-
-open Finset in
-/-- **Abel's inequality**: if the partial sums of `f` are dominated by those of `c` (up to `n`) and
-`g` is nonnegative and antitone, then the `g`-weighted sum of `f` is dominated by that of `c`. -/
-theorem sum_mul_le_sum_mul_of_sum_range_le {R : Type*} [CommRing R] [PartialOrder R]
-    [IsOrderedRing R] {f c g : ℕ → R} {n : ℕ}
-    (hfc : ∀ k ≤ n, ∑ i ∈ range k, f i ≤ ∑ i ∈ range k, c i) (hg₀ : 0 ≤ g) (hg : Antitone g) :
-    ∑ i ∈ range n, f i * g i ≤ ∑ i ∈ range n, c i * g i := by
-  rw [← sub_nonneg, ← sum_sub_distrib]
-  have (k) (hk : k ≤ n) : 0 ≤ ∑ i ∈ range k, (c i - f i) := by simpa [sub_nonneg] using hfc k hk
-  calc
-    _ = g (n - 1) * 0 - 0 := by simp
-    _ ≤ _ := by
-      simp_rw [← sub_mul, mul_comm _ (g _), ← smul_eq_mul, sum_range_by_parts g _ n, smul_eq_mul]
-      gcongr
-      · simpa using hg₀ (n - 1)
-      · grind
-      · grind [sum_nonpos, mul_nonpos_of_nonpos_of_nonneg, sub_nonpos.2 (hg (Nat.le_succ _))]
 
 open Finset in
 /-- If the partial sums of `f` grow at most linearly, then so do the sums weighted by a
