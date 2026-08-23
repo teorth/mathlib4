@@ -173,15 +173,17 @@ def chebyWith (C : ℝ) (f : ℕ → ℂ) : Prop := ∀ n, ∑ i ∈ .range n, �
 
 variable {C : ℝ} {f : ℕ → ℂ}
 
-def pp (a x : ℝ) : ℝ := a ^ 2 * (x + 1) ^ 2 + (1 - a) * (1 + a)
+private def F₁ (a x : ℝ) : ℝ := a ^ 2 * (x + 1) ^ 2 + (1 - a) * (1 + a)
 
-def hh (a t : ℝ) : ℝ := (t * (1 + (a * log t) ^ 2))⁻¹
+private def F₂ (a t : ℝ) : ℝ := (t * (1 + (a * log t) ^ 2))⁻¹
 
-def hh' (a t : ℝ) : ℝ := - pp a (log t) * hh a t ^ 2
+private def F₃ (a t : ℝ) : ℝ := - F₁ a (log t) * F₂ a t ^ 2
 
-lemma hh_nonneg (a : ℝ) {t : ℝ} (ht : 0 ≤ t) : 0 ≤ hh a t := by dsimp only [hh]; positivity
+private def F₄ (x i : ℝ) : ℝ := 1 / i * (1 + (1 / (2 * π) * log (i / x)) ^ 2)⁻¹
 
-lemma hh_deriv (a : ℝ) {t : ℝ} (ht : t ≠ 0) : HasDerivAt (hh a) (hh' a t) t := by
+private lemma F₂_nonneg (a : ℝ) {t : ℝ} (ht : 0 ≤ t) : 0 ≤ F₂ a t := by dsimp only [F₂]; positivity
+
+private lemma F₂_deriv (a : ℝ) {t : ℝ} (ht : t ≠ 0) : HasDerivAt (F₂ a) (F₃ a t) t := by
   have : HasDerivAt (fun t ↦ t * (1 + (a * log t) ^ 2))
       (1 + 2 * a ^ 2 * log t + a ^ 2 * log t ^ 2) t := by
     convert! (hasDerivAt_id' t).mul ?_ (d' := 2 * a ^ 2 * t⁻¹ * log t) using 1
@@ -189,135 +191,117 @@ lemma hh_deriv (a : ℝ) {t : ℝ} (ht : t ≠ 0) : HasDerivAt (hh a) (hh' a t) 
     convert! (((hasDerivAt_log ht).const_mul _).pow (f' := a * t⁻¹) 2).const_add _ using 1
     ring
   convert! this.inv (mul_ne_zero ht (ne_of_lt (by positivity)).symm) using 1
-  simp only [hh', pp, hh]; grind
+  simp only [F₃, F₁, F₂]; grind
 
-lemma hh'_nonpos {a x : ℝ} (ha : a ∈ Ioo (-1) 1) : hh' a x ≤ 0 := by
-  have : 0 < pp a (log x) := by
-    simp only [pp]
+private lemma F₃_nonpos {a x : ℝ} (ha : a ∈ Ioo (-1) 1) : F₃ a x ≤ 0 := by
+  have : 0 < F₁ a (log x) := by
+    simp only [F₁]
     have : 0 < 1 - a := by grind
     have : 0 < 1 + a := by grind
     positivity
-  simp only [hh', neg_mul, Left.neg_nonpos_iff]
+  simp only [F₃, neg_mul, Left.neg_nonpos_iff]
   positivity
 
-lemma hh_antitone {a : ℝ} (ha : a ∈ Ioo (-1) 1) : AntitoneOn (hh a) (Ioi 0) := by
-  have l1 x (hx : x ∈ interior (Ioi 0)) : HasDerivWithinAt (hh a) (hh' a x) (interior (Ioi 0)) x :=
-    (hh_deriv a (fun _ ↦ by simp_all)).hasDerivWithinAt
-  apply antitoneOn_of_hasDerivWithinAt_nonpos (convex_Ioi _)
-    (fun t (ht : 0 < t) ↦ (hh_deriv _ ht.ne.symm).continuousAt.continuousWithinAt) l1
-    (fun x _ => hh'_nonpos ha)
+private lemma F₂_antitone {a : ℝ} (ha : a ∈ Ioo (-1) 1) : AntitoneOn (F₂ a) (Ioi 0) :=
+  antitoneOn_of_hasDerivWithinAt_nonpos (convex_Ioi _)
+    (fun _ _ ↦ (F₂_deriv _ (by grind)).continuousAt.continuousWithinAt)
+    (fun _ _ ↦ (F₂_deriv a (fun _ ↦ by simp_all)).hasDerivWithinAt)
+    (fun _ _ ↦ F₃_nonpos ha)
 
-def gg (x i : ℝ) : ℝ := 1 / i * (1 + (1 / (2 * π) * log (i / x)) ^ 2)⁻¹
+private lemma F₄_of_F₂ {x : ℝ} (hx : x ≠ 0) (i : ℝ) : F₄ x i = x⁻¹ * F₂ (1 / (2 * π)) (i / x) := by
+  unfold F₄ F₂; field_simp
 
-lemma gg_of_hh {x : ℝ} (hx : x ≠ 0) (i : ℝ) : gg x i = x⁻¹ * hh (1 / (2 * π)) (i / x) := by
-  simp only [gg, hh]
-  field_simp
+private lemma F₄_le_one (i : ℕ) : F₄ x i ≤ 1 := by
+  unfold F₄
+  by_cases hi : i = 0
+  · simp [hi]
+  grw [← sq_nonneg, ← (mod_cast by omega : 1 ≤ (i : ℝ))]
+  simp
 
-lemma gg_le_one (i : ℕ) : gg x i ≤ 1 := by
-  by_cases hi : i = 0 <;> simp only [gg, hi, CharP.cast_eq_zero, div_zero, one_div, mul_inv_rev,
-    zero_div, Real.log_zero, mul_zero, ne_eq, OfNat.ofNat_ne_zero, not_false_eq_true, zero_pow,
-    add_zero, inv_one, mul_one, zero_le_one]
-  have l1 : 1 ≤ (i : ℝ) := by simp; omega
-  have l2 : 1 ≤ 1 + (π⁻¹ * 2⁻¹ * log (↑i / x)) ^ 2 := by
-    simp only [le_add_iff_nonneg_right]; positivity
-  rw [← mul_inv]; apply inv_le_one_of_one_le₀; simpa using mul_le_mul l1 l2 zero_le_one (by simp)
-
-lemma one_div_two_pi_mem_Ioo : 1 / (2 * π) ∈ Ioo (-1) 1 := by
-  have : (0:ℝ) < 1 / (2 * π) := by positivity
-  refine ⟨by linarith, by field_simp; linarith [two_le_pi]⟩
-
-open Finset in
-/-- If the partial sums of `f` grow at most linearly, then so do the sums weighted by a
-nonnegative antitone `g`, measured against `∑ g`. -/
-theorem sum_mul_le_of_sum_range_le {C : ℝ} {f g : ℕ → ℝ}
-    (hf : ∀ n, ∑ i ∈ range n, f i ≤ C * n) (hg : 0 ≤ g) (hg' : Antitone g) (n : ℕ) :
-    ∑ i ∈ range n, f i * g i ≤ C * ∑ i ∈ range n, g i := by
-  have := sum_mul_le_sum_mul_of_sum_range_le (f := f) (c := fun _ ↦ C) (g := g) (n := n)
-    (fun k _ ↦ by simpa [mul_comm] using hf k) hg hg'
-  simpa [← mul_sum] using this
-
-/-- On `Ioi 0`, the integrand is a translate of the log-Cauchy density. -/
-lemma hh_div_eq (hc : 0 < c) {t : ℝ} (ht : 0 < t) :
-    a * hh b (t / c) = t⁻¹ • (a * c * (1 + (b * (log t - log c)) ^ 2)⁻¹) := by
+private lemma F₂_div_eq (hc : 0 < c) {t : ℝ} (ht : 0 < t) :
+    a * F₂ b (t / c) = t⁻¹ • (a * c * (1 + (b * (log t - log c)) ^ 2)⁻¹) := by
   have : (0:ℝ) < 1 + (b * (log t - log c)) ^ 2 := by positivity
-  simp [hh, log_div ht.ne' hc.ne', field]
+  simp [F₂, log_div ht.ne' hc.ne', field]
 
-lemma hh_integrable (hb : 0 < b) (hc : 0 < c) :
-    IntegrableOn (fun t ↦ a * hh b (t / c)) (Ici 0) := by
+private lemma F₂_integrable (hb : 0 < b) (hc : 0 < c) :
+    IntegrableOn (fun t ↦ a * F₂ b (t / c)) (Ici 0) := by
   rw [integrableOn_Ici_iff_integrableOn_Ioi]
-  have h : IntegrableOn
-      (fun t ↦ t⁻¹ • (a * c * (1 + (b * (log t - log c)) ^ 2)⁻¹)) (Ioi 0) :=
-    (integrableOn_comp_log_Ioi_zero fun u ↦ a * c * (1 + (b * (u - log c)) ^ 2)⁻¹).2
-      (((integrable_inv_one_add_mul_sq hb.ne').comp_sub_right _).const_mul _)
-  exact h.congr_fun (fun t ht ↦ (hh_div_eq hc ht).symm) measurableSet_Ioi
+  exact ((integrableOn_comp_log_Ioi_zero _).2
+    (((integrable_inv_one_add_mul_sq hb.ne').comp_sub_right _).const_mul _)).congr_fun
+    (fun t ht ↦ (F₂_div_eq hc ht).symm) measurableSet_Ioi
 
-lemma hh_integral (hb : 0 < b) (hc : 0 < c) :
-    ∫ (t : ℝ) in Ioi 0, a * hh b (t / c) = a * c / b * π := by
-  rw [setIntegral_congr_fun measurableSet_Ioi (fun t ht ↦ hh_div_eq hc ht),
+private lemma F₂_integral (hb : 0 < b) (hc : 0 < c) :
+    ∫ (t : ℝ) in Ioi 0, a * F₂ b (t / c) = a * c / b * π := by
+  rw [setIntegral_congr_fun measurableSet_Ioi (fun _ ↦ F₂_div_eq hc),
     integral_comp_log_Ioi_zero fun u ↦ a * c * (1 + (b * (u - log c)) ^ 2)⁻¹,
     integral_const_mul, integral_sub_right_eq_self (fun u ↦ (1 + (b * u) ^ 2)⁻¹),
     integral_univ_inv_one_add_mul_sq, abs_of_pos hb]
   ring
 
-lemma bound_sum_log_range {C : ℝ} (hf : chebyWith C f) {x : ℝ} (hx : 1 ≤ x)
-    (n : ℕ) :
+lemma one_div_two_pi_mem_Ioo : 1 / (2 * π) ∈ Ioo (-1) 1 := by
+  have : (0:ℝ) < 1 / (2 * π) := by positivity
+  refine ⟨by linarith, by field_simp; linarith [two_le_pi]⟩
+
+theorem sum_mul_le_of_sum_range_le {C : ℝ} {f g : ℕ → ℝ}
+    (hf : ∀ n, ∑ i ∈ .range n, f i ≤ C * n) (hg : 0 ≤ g) (hg' : Antitone g) (n : ℕ) :
+    ∑ i ∈ .range n, f i * g i ≤ C * ∑ i ∈ .range n, g i := by
+  simpa [← Finset.mul_sum] using Finset.sum_mul_le_sum_mul_of_sum_range_le
+    (c := fun _ ↦ C) (fun k _ ↦ by simpa [mul_comm] using hf k) hg hg'
+
+private lemma bound_sum_log_range {C : ℝ} (hf : chebyWith C f) {x : ℝ} (hx : 1 ≤ x) (n : ℕ) :
     ∑ i ∈ Finset.range n, ‖f i‖ / i * (1 + (1 / (2 * π) * log (i / x)) ^ 2)⁻¹ ≤
-      C * (1 + ∫ t in Ioi 0, hh (1 / (2 * π)) t) := by
-  let ggg (i : ℕ) : ℝ := if i = 0 then 1 else gg x i
+      C * (1 + ∫ t in Ioi 0, F₂ (1 / (2 * π)) t) := by
+  let F₅ (i : ℕ) : ℝ := if i = 0 then 1 else F₄ x i
   have l0 : x ≠ 0 := by linarith
-  have l1 i : 0 ≤ ggg i := by by_cases hi : i = 0 <;> simp only [gg, one_div, mul_inv_rev, hi,
-    ↓reduceIte, zero_le_one, ggg]; positivity
-  have l2 : Antitone ggg := by
+  have l1 i : 0 ≤ F₅ i := by by_cases hi : i = 0 <;> simp only [F₄, one_div, mul_inv_rev, hi,
+    ↓reduceIte, zero_le_one, F₅]; positivity
+  have l2 : Antitone F₅ := by
     intro i j hij; by_cases hi : i = 0 <;> by_cases hj : j = 0 <;> simp only [hj, ↓reduceIte, hi,
-      le_refl, ggg]
-    · exact gg_le_one _
+      le_refl, F₅]
+    · exact F₄_le_one _
     · omega
-    · simp only [gg_of_hh l0]
+    · simp only [F₄_of_F₂ l0]
       gcongr
-      apply hh_antitone one_div_two_pi_mem_Ioo
+      apply F₂_antitone one_div_two_pi_mem_Ioo
       · simp only [mem_Ioi]; positivity
       · simp only [mem_Ioi]; positivity
       · gcongr
   have l3 : 0 ≤ C := (norm_nonneg (f 0)).trans (by simpa using hf 1)
-  have l4 : 0 ≤ ∫ (t : ℝ) in Ioi 0, hh (π⁻¹ * 2⁻¹) t :=
-    setIntegral_nonneg measurableSet_Ioi (fun x hx ↦ hh_nonneg _ hx.le)
-  have l5 {n : ℕ} : AntitoneOn (fun t ↦ x⁻¹ * hh (1 / (2 * π)) (t / x)) (Ioc 0 n) := by
+  have l4 : 0 ≤ ∫ (t : ℝ) in Ioi 0, F₂ (π⁻¹ * 2⁻¹) t :=
+    setIntegral_nonneg measurableSet_Ioi (fun x hx ↦ F₂_nonneg _ hx.le)
+  have l5 {n : ℕ} : AntitoneOn (fun t ↦ x⁻¹ * F₂ (1 / (2 * π)) (t / x)) (Ioc 0 n) := by
     intro u ⟨hu1, _⟩ v ⟨hv1, _⟩ huv
-    simp only
-    apply mul_le_mul le_rfl ?_ (hh_nonneg _ (by positivity)) (by positivity)
-    apply hh_antitone one_div_two_pi_mem_Ioo (by simp only [mem_Ioi]; positivity)
-      (by simp only [mem_Ioi]; positivity)
-    apply (div_le_div_iff_of_pos_right (by positivity)).mpr huv
-  have l6 {n : ℕ} : IntegrableOn (fun t ↦ x⁻¹ * hh (π⁻¹ * 2⁻¹) (t / x)) (Icc 0 n) volume :=
-    .mono_set (hh_integrable (by positivity) (by positivity)) Icc_subset_Ici_self
-  refine (Finset.sum_le_sum (g := fun i ↦ ‖f i‖ * ggg i) (fun i _ ↦ ?_)).trans ?_
-  · by_cases hi : i = 0 <;> simp [gg, hi, ggg, field]
+    apply mul_le_mul le_rfl ?_ (F₂_nonneg _ (by positivity)) (by positivity)
+    exact F₂_antitone one_div_two_pi_mem_Ioo (by simp only [mem_Ioi]; positivity)
+      (by simp only [mem_Ioi]; positivity) (by grw [huv])
+  have l6 {n : ℕ} : IntegrableOn (fun t ↦ x⁻¹ * F₂ (π⁻¹ * 2⁻¹) (t / x)) (Icc 0 n) volume :=
+    .mono_set (F₂_integrable (by positivity) (by positivity)) Icc_subset_Ici_self
+  refine (Finset.sum_le_sum (g := fun i ↦ ‖f i‖ * F₅ i) (fun i _ ↦ ?_)).trans ?_
+  · by_cases hi : i = 0 <;> simp [F₄, hi, F₅, field]
   apply sum_mul_le_of_sum_range_le hf l1 l2 n |>.trans
-  gcongr; simp only [gg_of_hh l0, one_div, mul_inv_rev, ggg]
-  rcases (by omega : n = 0 ∨ 0 < n) with hn | hn
-  · simp only [hn, Finset.range_zero, Finset.sum_empty]; positivity
+  gcongr; simp only [F₄_of_F₂ l0, one_div, mul_inv_rev, F₅]
+  rcases (by omega : n = 0 ∨ 0 < n) with rfl | hn
+  · simp only [Finset.range_zero, Finset.sum_empty]; positivity
   have : Finset.range n = {0} ∪ .Ico 1 n := by grind
   simp only [this, Finset.singleton_union, Finset.mem_Ico, nonpos_iff_eq_zero, one_ne_zero,
     false_and, not_false_eq_true, Finset.sum_insert, ↓reduceIte, add_le_add_iff_left, ge_iff_le]
-  convert_to! ∑ x_1 ∈ .Ico 1 n, x⁻¹ * hh (π⁻¹ * 2⁻¹) (↑x_1 / x) ≤ _
+  convert_to! ∑ x_1 ∈ .Ico 1 n, x⁻¹ * F₂ (π⁻¹ * 2⁻¹) (↑x_1 / x) ≤ _
   · exact Finset.sum_congr rfl (by grind)
   simp_rw [Finset.sum_Ico_eq_sum_range, add_comm 1]
-  have := @AntitoneOn.sum_le_integral_of_integrableOn 0 (n - 1)
-    (fun t ↦ x⁻¹ * hh (π⁻¹ * 2⁻¹) (t / x)) (by simpa using l5) (by simpa using l6)
-  simp only [zero_add] at this
-  apply this.trans
-  rw [@intervalIntegral.integral_comp_div ℝ _ _ 0 ↑(n - 1) x (fun t ↦ x⁻¹ * hh (π⁻¹ * 2⁻¹) t) l0]
+  trans ∫ t in 0..↑(n - 1), x⁻¹ * F₂ (π⁻¹ * 2⁻¹) (t / x)
+  · simpa using @AntitoneOn.sum_le_integral_of_integrableOn 0 (n - 1)
+      (fun t ↦ x⁻¹ * F₂ (π⁻¹ * 2⁻¹) (t / x)) (by simpa using l5) (by simpa using l6)
+  rw [intervalIntegral.integral_comp_div (x⁻¹ * F₂ (π⁻¹ * 2⁻¹) ·) l0]
+  simp only [intervalIntegral.integral_const_mul]
   have : (0 : ℝ) ≤ ↑(n - 1) / x := by positivity
-  simp only [zero_div, intervalIntegral.integral_const_mul, smul_eq_mul, ← mul_assoc,
-    mul_inv_cancel₀ l0, one_mul]
   simp only [intervalIntegral.intervalIntegral_eq_integral_uIoc, this, ↓reduceIte, uIoc_of_le,
-    smul_eq_mul, one_mul, ge_iff_le]
+    smul_eq_mul, one_mul, zero_div, mul_inv_cancel₀ l0, ← mul_assoc]
   apply integral_mono_measure
   · exact Measure.restrict_mono Ioc_subset_Ioi_self le_rfl
   · exact eventually_of_mem (self_mem_ae_restrict measurableSet_Ioi)
-      (fun x hx ↦ hh_nonneg _ hx.le)
-  · have := (hh_integrable (a := 1) (b := 1 / (2 * π)) (by positivity) zero_lt_one)
-    simpa using! this.mono_set Ioi_subset_Ici_self
+      fun x hx ↦ F₂_nonneg _ hx.le
+  · simpa using! (F₂_integrable (a := 1) (b := 1 / (2 * π)) (by positivity)
+      zero_lt_one).mono_set Ioi_subset_Ici_self
 
 lemma bound_sum_log {C : ℝ} (hf : chebyWith C f) {x : ℝ} (hx : 1 ≤ x) :
     ∑' i, ‖f i‖ / i * (1 + (1 / (2 * π) * log (i / x)) ^ 2)⁻¹ ≤ C * (1 + 2 * π ^ 2) :=
@@ -325,35 +309,28 @@ lemma bound_sum_log {C : ℝ} (hf : chebyWith C f) {x : ℝ} (hx : 1 ≤ x) :
     _ ≤ _ := tsum_le_of_sum_range_le (fun _ ↦ by positivity) (bound_sum_log_range hf hx)
     _ = _ := by
       congr
-      convert hh_integral (a := 1) (b := 1 / (2 * π)) (by positivity) zero_lt_one using 1 <;> grind
+      convert F₂_integral (a := 1) (b := 1 / (2 * π)) (by positivity) zero_lt_one using 1 <;> grind
 
-/-- `1 + u ^ 2` is dominated by `1 + (u - c) ^ 2`, up to a constant depending only on `c`. -/
 lemma one_add_sq_le_const_mul (u c : ℝ) : 1 + u ^ 2 ≤ (2 + 2 * c ^ 2) * (1 + (u - c) ^ 2) := by
   nlinarith [sq_nonneg (u - c), sq_nonneg c, sq_nonneg (c * (u - c)), sq_nonneg u]
 
-/-- The weight appearing in the Fourier decay bound, at a general `x > 0`, is dominated by the
-same weight at `x = 1`. -/
 lemma weight_le_weight_one {x : ℝ} (hx : 0 < x) (n : ℕ) :
     (1 + (1 / (2 * π) * log (n / x)) ^ 2)⁻¹ ≤
       (2 + 2 * (1 / (2 * π) * log x) ^ 2) * (1 + (1 / (2 * π) * log n) ^ 2)⁻¹ := by
   rcases eq_or_ne n 0 with rfl | hn
   · simp only [Nat.cast_zero, zero_div, Real.log_zero]
     grind [sq_nonneg (1 / (2 * π) * log x)]
-  · have hlog : 1 / (2 * π) * log (n / x)
-        = 1 / (2 * π) * log n - 1 / (2 * π) * log x := by
+  · have hlog : 1 / (2 * π) * log (n / x) = 1 / (2 * π) * log n - 1 / (2 * π) * log x := by
       grind [log_div, Nat.cast_ne_zero]
     rw [hlog, inv_eq_one_div, inv_eq_one_div, mul_one_div,
       div_le_div_iff₀ (by positivity) (by positivity)]
     grind [one_add_sq_le_const_mul]
 
-/-- Summability of the weighted series, from the Chebyshev bound: this is the partial-sum
-estimate `bound_sum_log_range` combined with `summable_of_sum_range_le`. -/
 lemma summable_weighted_log (hcheby : chebyWith C f) {x : ℝ} (hx : 0 < x) :
-    Summable fun n : ℕ ↦ ‖f n‖ / n * (1 + (1 / (2 * π) * log (n / x)) ^ 2)⁻¹ := by
-  have base : Summable fun n : ℕ ↦ ‖f n‖ / n * (1 + (1 / (2 * π) * log n) ^ 2)⁻¹ := by
-    refine summable_of_sum_range_le (c := C * (1 + ∫ t in Ioi 0, hh (1 / (2 * π)) t))
-      (fun _ ↦ by positivity) (fun n ↦ ?_)
-    simpa using bound_sum_log_range hcheby (le_refl _) n
+    Summable fun n ↦ ‖f n‖ / n * (1 + (1 / (2 * π) * log (n / x)) ^ 2)⁻¹ := by
+  have base : Summable fun n ↦ ‖f n‖ / n * (1 + (1 / (2 * π) * log n) ^ 2)⁻¹ :=
+    summable_of_sum_range_le (c := C * (1 + ∫ t in Ioi 0, F₂ (1 / (2 * π)) t))
+      (fun _ ↦ by positivity) (fun n ↦ by simpa using bound_sum_log_range hcheby (le_refl _) n)
   refine Summable.of_nonneg_of_le (fun _ ↦ by positivity) (fun n ↦ ?_)
     (base.mul_left (2 + 2 * (1 / (2 * π) * log x) ^ 2))
   grw [weight_le_weight_one hx n]
@@ -371,13 +348,13 @@ private lemma SchwartzMap.Q_continuous : Continuous Q :=
 private lemma SchwartzMap.decay_bound (ψ : 𝓢(ℝ, ℂ)) (u : ℝ) :
     ‖𝓕 ψ u‖ ≤ ψ.Q * (1 + u ^ 2)⁻¹ := by
   rw [← div_eq_mul_inv, le_div_iff₀ (by positivity : (0 : ℝ) < 1 + u ^ 2)]
-  have h1 : ‖𝓕 ψ u‖ ≤ (𝓕 ψ).seminorm ℝ 0 0 := by
+  have : ‖𝓕 ψ u‖ ≤ (𝓕 ψ).seminorm ℝ 0 0 := by
     simpa using SchwartzMap.le_seminorm (𝕜 := ℝ) 0 0 (𝓕 ψ) u
-  have h2 : u ^ 2 * ‖𝓕 ψ u‖ ≤ (𝓕 ψ).seminorm ℝ 2 0 := by
+  have : u ^ 2 * ‖𝓕 ψ u‖ ≤ (𝓕 ψ).seminorm ℝ 2 0 := by
     simpa [norm_eq_abs, sq_abs, norm_iteratedFDeriv_zero] using
       SchwartzMap.le_seminorm (𝕜 := ℝ) 2 0 (𝓕 ψ) u
   unfold Q
-  nlinarith [h1, h2]
+  nlinarith
 
 lemma limiting_fourier_lim1_aux (hcheby : chebyWith C f) (hx : 0 < x) (C' : ℝ) :
     Summable fun n ↦ ‖f n‖ / n * (C' / (1 + (1 / (2 * π) * log (n / x)) ^ 2)) :=
@@ -455,9 +432,9 @@ theorem limiting_fourier_lim3 (hG : ContinuousOn G {s | 1 ≤ s.re}) (ψ : ℝ �
     (hψ1 : ContDiff ℝ 2 ψ) (hψ2 : HasCompactSupport ψ) (hx : 1 ≤ x) :
     Tendsto (fun σ : ℝ ↦ ∫ t : ℝ, G (σ + t * I) * ψ t * x ^ (t * I)) (𝓝[>] 1)
       (𝓝 (∫ t : ℝ, G (1 + t * I) * ψ t * x ^ (t * I))) := by
-  by_cases hh : tsupport ψ = ∅
-  · simp [tsupport_eq_empty_iff.mp hh]
-  obtain ⟨a₀, ha₀⟩ := nonempty_iff_ne_empty.mpr hh
+  by_cases F₂ : tsupport ψ = ∅
+  · simp [tsupport_eq_empty_iff.mp F₂]
+  obtain ⟨a₀, ha₀⟩ := nonempty_iff_ne_empty.mpr F₂
   have l1 : IsCompact (reProdIm (Icc 1 2) (tsupport ψ)) := by
     refine Metric.isCompact_iff_isClosed_bounded.mpr ⟨?_, ?_⟩
     · exact isClosed_Icc.reProdIm (isClosed_tsupport ψ)
@@ -1023,18 +1000,15 @@ lemma tendsto_mul_ceil_div :
   simp only [dist_zero_right, norm_div, RCLike.norm_natCast, div_lt_iff₀ l3, gt_iff_lt]
   convert (Nat.ceil_lt_add_one l5).trans_le (add_le_add l6 h2) using 1; ring
 
-def S (f : ℕ → ℝ) (ε : ℝ) (N : ℕ) : ℝ := (∑ n ∈ Finset.Ico ⌈ε * N⌉₊ N, f n) / N
+def S (f : ℕ → ℝ) (ε : ℝ) (N : ℕ) : ℝ := (∑ n ∈ .Ico ⌈ε * N⌉₊ N, f n) / N
 
 lemma S_sub_S {f : ℕ → ℝ} {ε : ℝ} {N : ℕ} (hε : ε ≤ 1) :
-    S f 0 N - S f ε N = (∑ i ∈ Finset.range ⌈ε * N⌉₊, f i) / N := by
-  have hceilN : ⌈ε * N⌉₊ ≤ N := by
-    simp only [Nat.ceil_le]
+    S f 0 N - S f ε N = (∑ i ∈ .range ⌈ε * N⌉₊, f i) / N := by
+  have : ⌈ε * N⌉₊ ≤ N := by
+    rw [Nat.ceil_le]
     exact mul_le_of_le_one_left N.cast_nonneg hε
-  have r1 : Finset.range N = Finset.range ⌈ε * N⌉₊ ∪ Finset.Ico ⌈ε * N⌉₊ N := by
-    ext n
-    simp only [Finset.mem_range, Finset.mem_union, Finset.mem_Ico]
-    omega
-  have r2 : Disjoint (Finset.range ⌈ε * N⌉₊) (Finset.Ico ⌈ε * N⌉₊ N) := by
+  have r1 : Finset.range N = .range ⌈ε * N⌉₊ ∪ .Ico ⌈ε * N⌉₊ N := by grind
+  have r2 : Disjoint (.range ⌈ε * N⌉₊) (Finset.Ico ⌈ε * N⌉₊ N) := by
     rw [Finset.range_eq_Ico]; apply Finset.Ico_disjoint_Ico_consecutive
   simp [S, r1, Finset.sum_union r2, add_div]
 
@@ -1044,15 +1018,15 @@ lemma tendsto_S_S_zero {f : ℕ → ℝ} (hpos : 0 ≤ f) (hcheby : chebyWith C 
   have l1 : ∀ᶠ (p : ℝ × ℕ) in 𝓝[>] 0 ×ˢ atTop, C * ⌈p.1 * p.2⌉₊ / p.2 < δ := by
     have r1 := tendsto_mul_ceil_div.const_mul C
     simp only [mul_div_assoc', mul_zero] at r1; exact r1 (Iio_mem_nhds hδ)
-  have : Ioc 0 1 ∈ 𝓝[>] (0 : ℝ) := inter_mem_nhdsWithin _ (Iic_mem_nhds zero_lt_one)
-  filter_upwards [l1, Eventually.prod_inl this _] with (ε, N) h1 h2
-  have l2 : ‖(∑ i ∈ .range ⌈ε * ↑N⌉₊, f i) / ↑N‖ ≤ C * ⌈ε * N⌉₊ / N := by
-    have r1 := hcheby ⌈ε * N⌉₊
-    have r2 : 0 ≤ ∑ i ∈ .range ⌈ε * N⌉₊, f i := Finset.sum_nonneg (fun i _ ↦ hpos i)
-    simp only [norm_real, norm_of_nonneg (hpos _), norm_div,
-      norm_of_nonneg r2, Real.norm_natCast] at r1 ⊢
-    apply div_le_div_of_nonneg_right r1 (by positivity)
-  simpa [← S_sub_S h2.2] using! l2.trans_lt h1
+  filter_upwards [l1, Eventually.prod_inl (inter_mem_nhdsWithin _ (Iic_mem_nhds zero_lt_one)) _]
+    with (ε, N) h1 h2
+  suffices ‖(∑ i ∈ .range ⌈ε * ↑N⌉₊, f i) / ↑N‖ ≤ C * ⌈ε * N⌉₊ / N by
+    simpa [← S_sub_S h2.2] using! this.trans_lt h1
+  have r1 := hcheby ⌈ε * N⌉₊
+  have r2 : 0 ≤ ∑ i ∈ .range ⌈ε * N⌉₊, f i := Finset.sum_nonneg (fun i _ ↦ hpos i)
+  simp only [norm_real, norm_of_nonneg (hpos _), norm_div,
+    norm_of_nonneg r2, Real.norm_natCast] at r1 ⊢
+  grw [r1]
 
 /-- A version of the *Wiener-Ikehara Tauberian Theorem*: If `f` is a nonnegative arithmetic
 function whose L-series has a simple pole at `s = 1` with residue `A` and otherwise extends
