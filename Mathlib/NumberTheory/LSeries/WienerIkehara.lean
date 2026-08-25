@@ -932,19 +932,16 @@ lemma WienerIkeharaInterval_discrete' [WienerIkehara] (ha : 0 < a)
 
 lemma tendsto_mul_ceil_div :
     Tendsto (fun (p : ℝ × ℕ) => ⌈p.1 * p.2⌉₊ / (p.2 : ℝ)) (𝓝[>] 0 ×ˢ atTop) (𝓝 0) := by
-  rw [Metric.tendsto_nhds]; intro δ hδ
-  have l1 : ∀ᶠ ε : ℝ in 𝓝[>] 0, ε ∈ Ioo 0 (δ / 2) :=
-    inter_mem_nhdsWithin _ (Iio_mem_nhds (by positivity))
-  have l2 : ∀ᶠ N : ℕ in atTop, 1 ≤ δ / 2 * N := by
-    apply Tendsto.eventually_ge_atTop
-    exact tendsto_natCast_atTop_atTop.const_mul_atTop (by positivity)
-  filter_upwards [l1.prod_mk l2] with (ε, N) ⟨⟨hε, h1⟩, h2⟩; dsimp only at *
-  have l3 : 0 < (N : ℝ) := by
-    simp only [Nat.cast_pos, Nat.pos_iff_ne_zero]; rintro rfl; simp [zero_lt_one.not_ge] at h2
-  have l5 : 0 ≤ ε * ↑N := by positivity
-  have l6 : ε * N ≤ δ / 2 * N := mul_le_mul h1.le le_rfl (by positivity) (by positivity)
-  simp only [dist_zero_right, norm_div, RCLike.norm_natCast, div_lt_iff₀ l3, gt_iff_lt]
-  convert (Nat.ceil_lt_add_one l5).trans_le (add_le_add l6 h2) using 1; ring
+  apply squeeze_zero' (g := fun p : ℝ × ℕ => p.1 + 1 / p.2)
+  · apply Filter.Eventually.of_forall
+    intro x; positivity
+  · filter_upwards [eventually_mem_nhdsWithin.prod_inl atTop,
+      (eventually_gt_atTop (0 : ℕ)).prod_inr _] with p hp hn
+    simp at hp; field_simp
+    apply (Nat.ceil_lt_add_one _).le; positivity
+  · rw [nhdsWithin]
+    simpa using (Filter.tendsto_fst.mono_right inf_le_left).add
+      ((tendsto_one_div_atTop_nhds_zero_nat (𝕜 := ℝ)).comp Filter.tendsto_snd)
 
 def S [WienerIkehara] (ε : ℝ) (N : ℕ) : ℝ := (∑ n ∈ .Ico ⌈ε * N⌉₊ N, f n) / N
 
@@ -985,8 +982,9 @@ theorem WienerIkeharaTheorem [WienerIkehara] :
     apply eventually_of_mem L0
     · intro ε hε
       simpa using! WienerIkeharaInterval_discrete' hε.1 hε.2
-  · have : Tendsto (fun ε : ℝ => ε) (𝓝[>] 0) (𝓝 0) := nhdsWithin_le_nhds
-    simpa using (this.const_sub 1).const_mul A
+  · convert ContinuousWithinAt.tendsto _
+    · simp
+    fun_prop
 
 end WienerIkehara
 
