@@ -188,8 +188,7 @@ private lemma integral_exp_mul_fourier_eq (hcont : Measurable ψ) (hsupp : Integ
 /-- The main result of this section: an initial Fourier identity expressing a weighted sum of
 `f` in terms of an integral and an error term of Fourier integral type. -/
 private lemma sum_term_mul_sub_mul_integral_eq [WienerIkehara]
-    (hψ1 : Continuous ψ)
-    (hψ2 : HasCompactSupport ψ) (hx : 1 ≤ x) (σ : ℝ) (hσ : 1 < σ) :
+    (hψ1 : Continuous ψ) (hψ2 : HasCompactSupport ψ) (hx : 1 ≤ x) (σ : ℝ) (hσ : 1 < σ) :
     ∑' n, term f σ n * 𝓕 ψ (1 / (2 * π) * log (n / x)) -
     A * (x ^ (1 - σ) : ℝ) * ∫ u in Ici (- log x), rexp (-u * (σ - 1)) * 𝓕 ψ
       (u / (2 * π)) = ∫ t : ℝ, G (σ + t * I) * ψ t * x ^ (t * I) := by
@@ -316,9 +315,6 @@ private lemma l6 {n : ℕ} (hx : 0 < x) : IntegrableOn (fun t ↦ x⁻¹ * F₂ 
     .mono_set (F₂_integrable (by positivity) (by positivity)) Icc_subset_Ici_self
 
 end HelperFunctions
-
-
--- def chebyWith (C : ℝ) (f : ℕ → ℂ) : Prop := ∀ n, ∑ i ∈ .range n, ‖f i‖ ≤ C * n
 
 section LimitingFourierIdentity
 
@@ -527,7 +523,7 @@ lemma summable_fourier [WienerIkehara] (hx : 1 ≤ x) :
   have l5 : Summable fun i ↦ ‖f i‖ / ↑i * ((1 + (1 / (2 * ↑π) * ↑(log (↑i / x))) ^ 2)⁻¹) := by
     simpa using summable_sum_log_range hx
   have l6 := summable_fourier_aux Ψ x f
-  exact Summable.of_nonneg_of_le (fun _ => norm_nonneg _) l6
+  exact Summable.of_nonneg_of_le (fun _ ↦ norm_nonneg _) l6
     (by simpa using l5.const_smul Ψ.Q)
 
 private lemma bound_I1 [WienerIkehara] (hx : 1 ≤ x) :
@@ -674,9 +670,8 @@ theorem wiener_ikehara_smooth_sub [WienerIkehara] (h1 : Integrable ψ)
   · grind [abs_le, norm_eq_abs, dist_zero_right, indicator_of_mem, inv_lt_comm₀]
   simp [ht]
 
-lemma wiener_ikehara_smooth [WienerIkehara]
-    (hsmooth : ContDiff ℝ ∞ ψ) (hsupp : HasCompactSupport ψ)
-    (hplus : closure (support ψ) ⊆ Ioi 0) :
+lemma wiener_ikehara_smooth [WienerIkehara] (hsmooth : ContDiff ℝ ∞ ψ)
+    (hsupp : HasCompactSupport ψ) (hplus : closure (support ψ) ⊆ Ioi 0) :
     Tendsto (fun x : ℝ ↦ (∑' n, f n * ψ (n / x)) / x - A * ∫ y in Ioi 0, ψ y)
       atTop (𝓝 0) := by
   let h (x : ℝ) : ℂ := rexp (2 * π * x) * ψ (exp (2 * π * x))
@@ -721,9 +716,8 @@ lemma wiener_ikehara_smooth [WienerIkehara]
     wiener_ikehara_smooth_sub (hsmooth.continuous.integrable_of_hasCompactSupport hsupp) hplus
   simpa [tsum_div_const] using (key.congr' <| EventuallyEq.sub l2 l3) |>.add l4
 
-lemma wiener_ikehara_smooth' [WienerIkehara]
-    (hsmooth : ContDiff ℝ ∞ Ψ) (hsupp : HasCompactSupport Ψ)
-    (hplus : closure (support Ψ) ⊆ Ioi 0) :
+lemma wiener_ikehara_smooth' [WienerIkehara] (hsmooth : ContDiff ℝ ∞ Ψ)
+    (hsupp : HasCompactSupport Ψ) (hplus : closure (support Ψ) ⊆ Ioi 0) :
     Tendsto (fun x ↦ (∑' n, f n * Ψ (n / x)) / x) atTop (nhds (A * ∫ y in Ioi 0, Ψ y)) :=
   tendsto_sub_nhds_zero_iff.mp <| wiener_ikehara_smooth hsmooth hsupp hplus
 
@@ -839,8 +833,7 @@ lemma WI_sum_le [WienerIkehara] {g₁ g₂ : ℝ → ℝ} (hf : 0 ≤ f) (hg : g
   exact Summable.tsum_le_tsum (fun n => mul_le_mul_of_nonneg_left (hg _) (hf _))
     (WI_summable hg₁ hx) (WI_summable hg₂ hx)
 
-lemma WI_sum_Iab_le [WienerIkehara] (hb : 0 < b)
-    (hxb : 2 / b < x) :
+lemma WI_sum_Iab_le [WienerIkehara] (hb : 0 < b) (hxb : 2 / b < x) :
     (∑' n, f n * indicator (Ico a b) 1 (n / x)) / x ≤ C * 2 * b := by
   have hb' : 0 < 2 / b := by positivity
   have hx : 0 < x := by linarith
@@ -887,8 +880,7 @@ lemma WI_tendsto_aux' (a b : ℝ) {A : ℝ} (hA : 0 < A) :
   · fun_prop
   · intro _ _; simp_all; field_simp; linarith
 
-theorem residue_nonneg [WienerIkehara] :
-    0 ≤ A := by
+theorem residue_nonneg [WienerIkehara] : 0 ≤ A := by
   obtain ⟨ε, ψ, h1, h2, h3, h4, -⟩ := (interval_approx_sup zero_lt_one one_lt_two).exists
   have l2 : 0 ≤ ψ := le_trans (indicator_nonneg (by simp)) h4
   have l4 : 0 < ∫ (y : ℝ) in Ioi 0, ψ y := by
@@ -904,8 +896,7 @@ theorem residue_nonneg [WienerIkehara] :
   · filter_upwards [eventually_ge_atTop 0] with x hx using
       div_nonneg (tsum_nonneg (fun _ ↦ mul_nonneg (hpos _) (l2 _))) hx
 
-lemma WienerIkeharaInterval [WienerIkehara] (ha : 0 < a)
-    (hb : a ≤ b) :
+lemma WienerIkeharaInterval [WienerIkehara] (ha : 0 < a) (hb : a ≤ b) :
     Tendsto (fun x : ℝ ↦ (∑' n, f n * (indicator (Ico a b) 1 (n / x))) / x) atTop
       (nhds (A * (b - a))) := by
   by_cases hab : a = b
