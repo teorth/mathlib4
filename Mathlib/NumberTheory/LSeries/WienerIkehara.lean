@@ -85,7 +85,12 @@ end SchwartzMap
 
 local instance {E : Type*} : Coe (E → ℝ) (E → ℂ) := ⟨fun f n ↦ f n⟩
 
-/-- The data and hypotheses for the Wiener--Ikehara theorem -/
+/-- The data and hypotheses for the Wiener--Ikehara theorem.  Can be conveniently accessed inside
+the `WienerIkehara` namespace by adding a `[WienerIkehara]` instance.
+
+The `hf` hypothesis can be derived from `bound`, and `bound` is itself redundant, but implementing
+these simplifications is non-trivial, and the hypotheses can usually be verified from existing
+API in practice anyway. -/
 class WienerIkehara where
   f : ℕ → ℝ
   C : ℝ
