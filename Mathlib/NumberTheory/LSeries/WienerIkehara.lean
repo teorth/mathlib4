@@ -793,53 +793,6 @@ private lemma WI_sum_le [WienerIkehara] {g₁ g₂ : ℝ → ℝ} (hf : 0 ≤ f)
   exact Summable.tsum_le_tsum (fun n => mul_le_mul_of_nonneg_left (hg _) (hf _))
     (WI_summable hg₁ hx) (WI_summable hg₂ hx)
 
-private lemma WI_sum_Iab_le [WienerIkehara] (hb : 0 < b) (hxb : 2 / b < x) :
-    (∑' n, f n * indicator (Ico a b) 1 (n / x)) / x ≤ C * 2 * b := by
-  have hb' : 0 < 2 / b := by positivity
-  have hx : 0 < x := by linarith
-  have hxb' : 2 < x * b := (div_lt_iff₀ hb).mp hxb
-  have l1 (i : ℕ) (hi : i ∉ Finset.range ⌈b * x⌉₊) : f i * indicator (Ico a b) 1 (i / x) = 0 := by
-    simp_all [le_div_iff₀ hx]
-  have l2 (i : ℕ) (_ : i ∈ Finset.range ⌈b * x⌉₊) :
-      f i * indicator (Ico a b) 1 (i / x) ≤ |f i| := by
-    rw [abs_eq_self.mpr (hpos _)]
-    convert_to _ ≤ f i * 1
-    · ring
-    apply mul_le_mul_of_nonneg_left ?_ (hpos _)
-    by_cases hi : (i / x) ∈ (Ico a b) <;> simp [hi]
-  rw [tsum_eq_sum l1, div_le_iff₀ hx, mul_assoc, mul_assoc]
-  apply Finset.sum_le_sum l2 |>.trans
-  have := bound ⌈b * x⌉₊; simp only [norm_eq_abs] at this; apply this.trans
-  have : 0 ≤ C := by have := bound 1; simp only [Finset.range_one,
-    Finset.sum_singleton, Nat.cast_one, mul_one] at this; exact (abs_nonneg _).trans this
-  refine mul_le_mul_of_nonneg_left ?_ this
-  apply (Nat.ceil_lt_add_one (by positivity)).le.trans
-  linarith
-
-private lemma WI_sum_Iab_le' [WienerIkehara] (hb : 0 < b) :
-    ∀ᶠ x : ℝ in atTop, (∑' n, f n * indicator (Ico a b) 1 (n / x)) / x ≤ C * 2 * b := by
-  filter_upwards [eventually_gt_atTop (2 / b)] with x hx using WI_sum_Iab_le hb hx
-
-private lemma le_of_eventually_nhdsWithin (h : ∀ᶠ c in 𝓝[>] b, a ≤ c) : a ≤ b :=
-  ge_of_tendsto (tendsto_id.mono_left nhdsWithin_le_nhds) h
-
-private lemma ge_of_eventually_nhdsWithin (h : ∀ᶠ c in 𝓝[<] b, c ≤ a) : b ≤ a :=
-  le_of_tendsto (tendsto_id.mono_left nhdsWithin_le_nhds) h
-
-private lemma WI_tendsto_aux (a b : ℝ) {A : ℝ} (hA : 0 < A) :
-    Tendsto (· / A - (b - a)) (𝓝[>] (A * (b - a))) (𝓝[>] 0) := by
-  convert ContinuousWithinAt.tendsto_nhdsWithin _ _
-  · grind
-  · fun_prop
-  · intro _ _; simp_all; field_simp; linarith
-
-private lemma WI_tendsto_aux' (a b : ℝ) {A : ℝ} (hA : 0 < A) :
-    Tendsto ((b - a) - · / A) (𝓝[<] (A * (b - a))) (𝓝[>] 0) := by
-  convert ContinuousWithinAt.tendsto_nhdsWithin _ _
-  · grind
-  · fun_prop
-  · intro _ _; simp_all; field_simp; linarith
-
 theorem residue_nonneg [WienerIkehara] : 0 ≤ A := by
   obtain ⟨ε, ψ, h1, h2, h3, h4, -⟩ := (interval_approx_sup zero_lt_one one_lt_two).exists
   have l2 : 0 ≤ ψ := le_trans (indicator_nonneg (by simp)) h4
@@ -862,52 +815,43 @@ private lemma WienerIkeharaInterval [WienerIkehara] (ha : 0 < a) (hb : a ≤ b) 
   by_cases hab : a = b
   · simp [hab]
   replace hb : a < b := lt_of_le_of_ne hb hab; clear hab
-  let S (g : ℝ → ℝ) (x : ℝ) :=  (∑' n, f n * g (n / x)) / x
-  have hSnonneg {g : ℝ → ℝ} (hg : 0 ≤ g) : ∀ᶠ x : ℝ in atTop, 0 ≤ S g x := by
-    filter_upwards [eventually_ge_atTop 0] with x hx using
-      div_nonneg (tsum_nonneg (fun _ ↦ mul_nonneg (hpos _) (hg _))) hx
-  have hA : 0 ≤ A := residue_nonneg
+  let S (g : ℝ → ℝ) (x : ℝ) := (∑' n, f n * g (n / x)) / x
   let Iab : ℝ → ℝ := indicator (Ico a b) 1
-  change Tendsto (S Iab) atTop (𝓝 (A * (b - a)))
   have hIab : HasCompactSupport Iab := by
     simpa [Iab, HasCompactSupport, tsupport, hb.ne] using isCompact_Icc
-  have Iab_nonneg : ∀ᶠ x : ℝ in atTop, 0 ≤ S Iab x := hSnonneg (indicator_nonneg (by simp))
-  have Iab2 : IsBoundedUnder (· ≤ ·) atTop (S Iab) :=
-    ⟨C * 2 * b, WI_sum_Iab_le' (by linarith)⟩
-  have Iab3 : IsBoundedUnder (· ≥ ·) atTop (S Iab) := ⟨0, Iab_nonneg⟩
-  have Iab0 : IsCoboundedUnder (· ≥ ·) atTop (S Iab) := Iab2.isCoboundedUnder_ge
-  have Iab1 : IsCoboundedUnder (· ≤ ·) atTop (S Iab) := Iab3.isCoboundedUnder_le
-  have : limsup (S Iab) atTop ≤ A * (b - a) := by
-    have l_sup : ∀ᶠ ε in 𝓝[>] 0, limsup (S Iab) atTop ≤ A * (b - a + ε) := by
-      filter_upwards [interval_approx_sup ha hb] with ε ⟨ψ, h1, h2, h3, h4, h6⟩
-      have l1 : Tendsto (S ψ) atTop _ := wiener_ikehara_smooth_real h1 h2 h3
-      have l6 : S Iab ≤ᶠ[atTop] S ψ := by
-        filter_upwards [eventually_gt_atTop 0] with x hx using WI_sum_le hpos h4 hx hIab h2
-      have l5 : IsBoundedUnder (· ≤ ·) atTop (S ψ) := l1.isBoundedUnder_le
-      have l3 : limsup (S Iab) atTop ≤ limsup (S ψ) atTop := limsup_le_limsup l6 Iab1 l5
-      apply l3.trans; rw [l1.limsup_eq]; gcongr
-    obtain h | h := eq_or_ne A 0
-    · simpa [h] using l_sup
-    apply le_of_eventually_nhdsWithin
-    have key : 0 < A := lt_of_le_of_ne hA h.symm
-    filter_upwards [WI_tendsto_aux a b key l_sup] with x hx
-    simpa [mul_div_cancel₀ _ h] using hx
-  have : A * (b - a) ≤ liminf (S Iab) atTop := by
-    have l_inf : ∀ᶠ ε in 𝓝[>] 0, A * (b - a - ε) ≤ liminf (S Iab) atTop := by
-      filter_upwards [interval_approx_inf ha hb] with ε ⟨ψ, h1, h2, h3, h5, h6⟩
-      have l1 : Tendsto (S ψ) atTop _ := wiener_ikehara_smooth_real h1 h2 h3
-      have l2 : S ψ ≤ᶠ[atTop] S Iab := by
-        filter_upwards [eventually_gt_atTop 0] with x hx using WI_sum_le hpos h5 hx h2 hIab
-      have l4 : IsBoundedUnder (· ≥ ·) atTop (S ψ) := l1.isBoundedUnder_ge
-      have l3 : liminf (S ψ) atTop ≤ liminf (S Iab) atTop := liminf_le_liminf l2 l4 Iab0
-      apply le_trans ?_ l3; rw [l1.liminf_eq]; gcongr
-    obtain h | h := eq_or_ne A 0
-    · simpa [h] using l_inf
-    apply ge_of_eventually_nhdsWithin
-    have key : 0 < A := lt_of_le_of_ne hA h.symm
-    filter_upwards [WI_tendsto_aux' a b key l_inf] with x hx
-    simpa [mul_div_cancel₀ _ h] using hx
-  grind [tendsto_of_liminf_eq_limsup, liminf_le_limsup]
+  change Tendsto (S Iab) atTop (𝓝 (A * (b - a)))
+  rw [tendsto_order]
+  constructor
+  · intro c hc
+    have auxlim : ∀ᶠ ε in 𝓝[>] 0, c < A * (b - a - ε) := by
+      apply Filter.Tendsto.eventually_const_lt hc _
+      nth_rw 2 [(by norm_num : b - a = b - a - 0)]
+      apply ContinuousWithinAt.tendsto _
+      fun_prop
+    obtain ⟨ε, ⟨ψ, h1, h2, h3, h5, h6⟩, hε⟩ := ((interval_approx_inf ha hb).and auxlim).exists
+    have hcψ : c < A * ∫ y in Ioi 0, ψ y := by nlinarith [residue_nonneg, h6, hε]
+    have hlow : ∀ᶠ x in atTop, c < S ψ x :=
+      wiener_ikehara_smooth_real h1 h2 h3 (Ioi_mem_nhds hcψ)
+    have hcomp : S ψ ≤ᶠ[atTop] S Iab := by
+      filter_upwards [eventually_gt_atTop 0] with x hx
+      exact WI_sum_le hpos h5 hx h2 hIab
+    filter_upwards [hlow, hcomp] with x hx1 hx2
+    linarith
+  · intro c hc
+    have auxlim : ∀ᶠ ε in 𝓝[>] 0, A * (b - a + ε) < c := by
+      apply Filter.Tendsto.eventually_lt_const hc _
+      nth_rw 2 [(by norm_num : b - a = b - a + 0)]
+      apply ContinuousWithinAt.tendsto _
+      fun_prop
+    obtain ⟨ε, ⟨ψ, h1, h2, h3, h5, h6⟩, hε⟩ := ((interval_approx_sup ha hb).and auxlim).exists
+    have hcψ : A * ∫ y in Ioi 0, ψ y < c := by nlinarith [residue_nonneg, h6, hε]
+    have hlow : ∀ᶠ x in atTop, S ψ x < c :=
+      wiener_ikehara_smooth_real h1 h2 h3 (Iio_mem_nhds hcψ)
+    have hcomp : S Iab ≤ᶠ[atTop] S ψ := by
+      filter_upwards [eventually_gt_atTop 0] with x hx
+      exact WI_sum_le hpos h5 hx hIab h2
+    filter_upwards [hlow, hcomp] with x hx1 hx2
+    linarith
 
 end Interval
 
@@ -972,11 +916,8 @@ private lemma tendsto_S_S_zero [WienerIkehara] :
     with (ε, N) h1 h2
   suffices ‖(∑ i ∈ .range ⌈ε * ↑N⌉₊, f i) / ↑N‖ ≤ C * ⌈ε * N⌉₊ / N by
     simpa [← S_sub_S h2.2] using! this.trans_lt h1
-  have r1 := bound ⌈ε * N⌉₊
-  have r2 : 0 ≤ ∑ i ∈ .range ⌈ε * N⌉₊, f i := Finset.sum_nonneg (fun i _ ↦ hpos i)
-  simp only [norm_of_nonneg (hpos _), norm_div,
-    norm_of_nonneg r2, Real.norm_natCast] at r1 ⊢
-  grw [r1]
+  rw [norm_div, Real.norm_natCast]; gcongr
+  exact (norm_sum_le _ _).trans (bound ⌈ε * N⌉₊)
 
 /-- A version of the *Wiener-Ikehara Tauberian Theorem*: If `f` is a nonnegative arithmetic
 function whose L-series has a simple pole at `s = 1` with residue `A` and otherwise extends
