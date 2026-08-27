@@ -713,12 +713,12 @@ variable {a b c d x : ℝ}
 /-- A smooth Urysohn lemma on the real line: for `a < b` and `c < d` there is a smooth compactly
 supported function squeezed between the indicators of `Icc b c` and `Ioo a d`, whose support is
 exactly `Ioo a d`.  This specializes `exists_contMDiff_support_eq_eq_one_iff`. -/
-lemma exists_contDiff_one_on_Icc_support_eq_Ioo (h1 : a < b) (h3 : c < d) :
+lemma exists_contDiff_one_on_Icc_support_eq_Ioo (hab : a < b) (hcd : c < d) :
     ∃ Ψ : ℝ → ℝ, (ContDiff ℝ ∞ Ψ) ∧ (HasCompactSupport Ψ) ∧
       indicator (Icc b c) 1 ≤ Ψ ∧ Ψ ≤ indicator (Ioo a d) 1 ∧ support Ψ = Ioo a d := by
   obtain ⟨Ψ, hsmooth, hrange, hsupp, hone⟩ :=
     exists_contMDiff_support_eq_eq_one_iff (I := modelWithCornersSelf ℝ ℝ) (n := ⊤)
-      isOpen_Ioo isClosed_Icc (Icc_subset_Ioo h1 h3)
+      isOpen_Ioo isClosed_Icc (Icc_subset_Ioo hab hcd)
   refine ⟨Ψ, hsmooth.contDiff, ?_, indicator_le' (fun x hx ↦ ?_) (fun x _ ↦ ?_),
     fun x ↦ le_indicator_apply (fun _ ↦ ?_) (fun hx ↦ ?_), hsupp⟩
   · exact HasCompactSupport.of_support_subset_isCompact isCompact_Icc (hsupp ▸ Ioo_subset_Icc_self)
@@ -743,20 +743,16 @@ private lemma interval_approx_inf (ha : 0 < a) (hab : a < b) :
   refine ⟨ψ, h1, h2, ?_, ?_, ?_⟩
   · simp [h5, hab.ne, Icc_subset_Ioi_iff hab.le, ha]
   · exact h4.trans <| indicator_le_indicator_of_subset Ioo_subset_Ico_self (by simp)
-  · have l4 : 0 ≤ b - a - ε := by linarith
-    have l6 : Icc (a + ε / 2) (b - ε / 2) ∩ Ioi 0 = Icc (a + ε / 2) (b - ε / 2) :=
-      by grind
-    have l7 : ∫ y in Ioi 0, indicator (Icc (a + ε / 2) (b - ε / 2)) 1 y = b - a - ε := by
-      simp only [measurableSet_Icc, integral_indicator_one, measureReal_restrict_apply, l6,
+  · have : Icc (a + ε / 2) (b - ε / 2) ∩ Ioi 0 = Icc (a + ε / 2) (b - ε / 2) := by grind
+    have : ∫ y in Ioi 0, indicator (Icc (a + ε / 2) (b - ε / 2)) 1 y = b - a - ε := by
+      simp only [measurableSet_Icc, integral_indicator_one, measureReal_restrict_apply, this,
         volume_real_Icc]
-      convert max_eq_left l4 using 1; ring_nf
-    have l8 : IntegrableOn ψ (Ioi 0) volume :=
-      (h1.continuous.integrable_of_hasCompactSupport h2).integrableOn
-    rw [← l7]; apply setIntegral_mono ?_ l8 h3
+      convert max_eq_left (by linarith : 0 ≤ b - a - ε) using 1; ring_nf
+    rw [← this]
+    apply setIntegral_mono ?_ (h1.continuous.integrable_of_hasCompactSupport h2).integrableOn h3
     rw [IntegrableOn, integrable_indicator_iff measurableSet_Icc]
     apply IntegrableOn.mono ?_ subset_rfl Measure.restrict_le_self
-    apply integrableOn_const <;>
-    simp
+    apply integrableOn_const <;> simp
 
 private lemma interval_approx_sup (ha : 0 < a) (hab : a < b) :
     ∀ᶠ ε in 𝓝[>] 0, ∃ ψ : ℝ → ℝ, ContDiff ℝ ∞ ψ ∧ HasCompactSupport ψ ∧
@@ -770,24 +766,17 @@ private lemma interval_approx_sup (ha : 0 < a) (hab : a < b) :
   · have l4 : a - ε / 2 < b + ε / 2 := by linarith
     have l5 : ε / 2 < a := by linarith
     simp [h5, l4.ne, Icc_subset_Ioi_iff l4.le, l5]
-  · apply le_trans ?_ h3
-    apply indicator_le_indicator_of_subset Ico_subset_Icc_self (by simp)
-  · have l4 : 0 ≤ b - a + ε := by linarith
-    have l5 : Ioo (a - ε / 2) (b + ε / 2) ⊆ Ioi 0 := by grind -- intro t ht; simp at ht ⊢; linarith
-    have l6 : Ioo (a - ε / 2) (b + ε / 2) ∩ Ioi 0 = Ioo (a - ε / 2) (b + ε / 2) :=
-      inter_eq_left.mpr l5
-    have l7 : ∫ y in Ioi 0, indicator (Ioo (a - ε / 2) (b + ε / 2)) 1 y = b - a + ε := by
-      simp only [measurableSet_Ioo, integral_indicator_one, measureReal_restrict_apply, l6,
+  · apply le_trans (indicator_le_indicator_of_subset Ico_subset_Icc_self (by simp)) h3
+  · have : Ioo (a - ε / 2) (b + ε / 2) ∩ Ioi 0 = Ioo (a - ε / 2) (b + ε / 2) := by grind
+    have : ∫ y in Ioi 0, indicator (Ioo (a - ε / 2) (b + ε / 2)) 1 y = b - a + ε := by
+      simp only [measurableSet_Ioo, integral_indicator_one, measureReal_restrict_apply, this,
         volume_real_Ioo]
-      convert max_eq_left l4 using 1; ring_nf
-    have l8 : IntegrableOn ψ (Ioi 0) volume :=
-      (h1.continuous.integrable_of_hasCompactSupport h2).integrableOn
-    rw [← l7]
-    refine setIntegral_mono l8 ?_ h4
+      convert max_eq_left (by linarith : b - a + ε ≥ 0) using 1; ring_nf
+    rw [← this]
+    apply setIntegral_mono (h1.continuous.integrable_of_hasCompactSupport h2).integrableOn ?_ h4
     rw [IntegrableOn, integrable_indicator_iff measurableSet_Ioo]
     apply IntegrableOn.mono ?_ subset_rfl Measure.restrict_le_self
-    apply integrableOn_const <;>
-    simp
+    apply integrableOn_const <;> simp
 
 private lemma WI_summable [WienerIkehara] {g : ℝ → ℝ} (hg : HasCompactSupport g) (hx : 0 < x) :
     Summable (fun n ↦ f n * g (n / x)) := by
