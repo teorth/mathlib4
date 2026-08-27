@@ -729,7 +729,7 @@ lemma exists_contDiff_one_on_Icc_support_eq_Ioo (h1 : a < b) (h3 : c < d) :
     simp only [mem_support, not_not] at hx'
     exact hx'.le
 
-lemma interval_approx_inf (ha : 0 < a) (hab : a < b) :
+private lemma interval_approx_inf (ha : 0 < a) (hab : a < b) :
     ∀ᶠ ε in 𝓝[>] 0, ∃ ψ : ℝ → ℝ, ContDiff ℝ ∞ ψ ∧ HasCompactSupport ψ ∧
       closure (support ψ) ⊆ Ioi 0 ∧
         ψ ≤ indicator (Ico a b) 1 ∧ b - a - ε ≤ ∫ y in Ioi 0, ψ y := by
@@ -758,7 +758,7 @@ lemma interval_approx_inf (ha : 0 < a) (hab : a < b) :
     apply integrableOn_const <;>
     simp
 
-lemma interval_approx_sup (ha : 0 < a) (hab : a < b) :
+private lemma interval_approx_sup (ha : 0 < a) (hab : a < b) :
     ∀ᶠ ε in 𝓝[>] 0, ∃ ψ : ℝ → ℝ, ContDiff ℝ ∞ ψ ∧ HasCompactSupport ψ ∧
       closure (support ψ) ⊆ Ioi 0 ∧
         indicator (Ico a b) 1 ≤ ψ ∧ ∫ y in Ioi 0, ψ y ≤ b - a + ε := by
@@ -789,7 +789,7 @@ lemma interval_approx_sup (ha : 0 < a) (hab : a < b) :
     apply integrableOn_const <;>
     simp
 
-lemma WI_summable [WienerIkehara] {g : ℝ → ℝ} (hg : HasCompactSupport g) (hx : 0 < x) :
+private lemma WI_summable [WienerIkehara] {g : ℝ → ℝ} (hg : HasCompactSupport g) (hx : 0 < x) :
     Summable (fun n ↦ f n * g (n / x)) := by
   obtain ⟨M, hM⟩ := hg.bddAbove.mono subset_closure
   apply summable_of_hasFiniteSupport
@@ -797,14 +797,14 @@ lemma WI_summable [WienerIkehara] {g : ℝ → ℝ} (hg : HasCompactSupport g) (
   simp only [support_mul]; apply Finite.inter_of_right; rw [finite_iff_bddAbove]
   exact ⟨Nat.ceil (M * x), fun i hi => by simpa using Nat.ceil_mono ((div_le_iff₀ hx).mp (hM hi))⟩
 
-lemma WI_sum_le [WienerIkehara] {g₁ g₂ : ℝ → ℝ} (hf : 0 ≤ f) (hg : g₁ ≤ g₂) (hx : 0 < x)
+private lemma WI_sum_le [WienerIkehara] {g₁ g₂ : ℝ → ℝ} (hf : 0 ≤ f) (hg : g₁ ≤ g₂) (hx : 0 < x)
     (hg₁ : HasCompactSupport g₁) (hg₂ : HasCompactSupport g₂) :
     (∑' n, f n * g₁ (n / x)) / x ≤ (∑' n, f n * g₂ (n / x)) / x := by
   apply div_le_div_of_nonneg_right ?_ hx.le
   exact Summable.tsum_le_tsum (fun n => mul_le_mul_of_nonneg_left (hg _) (hf _))
     (WI_summable hg₁ hx) (WI_summable hg₂ hx)
 
-lemma WI_sum_Iab_le [WienerIkehara] (hb : 0 < b) (hxb : 2 / b < x) :
+private lemma WI_sum_Iab_le [WienerIkehara] (hb : 0 < b) (hxb : 2 / b < x) :
     (∑' n, f n * indicator (Ico a b) 1 (n / x)) / x ≤ C * 2 * b := by
   have hb' : 0 < 2 / b := by positivity
   have hx : 0 < x := by linarith
@@ -827,24 +827,24 @@ lemma WI_sum_Iab_le [WienerIkehara] (hb : 0 < b) (hxb : 2 / b < x) :
   apply (Nat.ceil_lt_add_one (by positivity)).le.trans
   linarith
 
-lemma WI_sum_Iab_le' [WienerIkehara] (hb : 0 < b) :
+private lemma WI_sum_Iab_le' [WienerIkehara] (hb : 0 < b) :
     ∀ᶠ x : ℝ in atTop, (∑' n, f n * indicator (Ico a b) 1 (n / x)) / x ≤ C * 2 * b := by
   filter_upwards [eventually_gt_atTop (2 / b)] with x hx using WI_sum_Iab_le hb hx
 
-lemma le_of_eventually_nhdsWithin (h : ∀ᶠ c in 𝓝[>] b, a ≤ c) : a ≤ b :=
+private lemma le_of_eventually_nhdsWithin (h : ∀ᶠ c in 𝓝[>] b, a ≤ c) : a ≤ b :=
   ge_of_tendsto (tendsto_id.mono_left nhdsWithin_le_nhds) h
 
-lemma ge_of_eventually_nhdsWithin (h : ∀ᶠ c in 𝓝[<] b, c ≤ a) : b ≤ a :=
+private lemma ge_of_eventually_nhdsWithin (h : ∀ᶠ c in 𝓝[<] b, c ≤ a) : b ≤ a :=
   le_of_tendsto (tendsto_id.mono_left nhdsWithin_le_nhds) h
 
-lemma WI_tendsto_aux (a b : ℝ) {A : ℝ} (hA : 0 < A) :
+private lemma WI_tendsto_aux (a b : ℝ) {A : ℝ} (hA : 0 < A) :
     Tendsto (· / A - (b - a)) (𝓝[>] (A * (b - a))) (𝓝[>] 0) := by
   convert ContinuousWithinAt.tendsto_nhdsWithin _ _
   · grind
   · fun_prop
   · intro _ _; simp_all; field_simp; linarith
 
-lemma WI_tendsto_aux' (a b : ℝ) {A : ℝ} (hA : 0 < A) :
+private lemma WI_tendsto_aux' (a b : ℝ) {A : ℝ} (hA : 0 < A) :
     Tendsto ((b - a) - · / A) (𝓝[<] (A * (b - a))) (𝓝[>] 0) := by
   convert ContinuousWithinAt.tendsto_nhdsWithin _ _
   · grind
@@ -867,7 +867,7 @@ theorem residue_nonneg [WienerIkehara] : 0 ≤ A := by
   · filter_upwards [eventually_ge_atTop 0] with x hx using
       div_nonneg (tsum_nonneg (fun _ ↦ mul_nonneg (hpos _) (l2 _))) hx
 
-lemma WienerIkeharaInterval [WienerIkehara] (ha : 0 < a) (hb : a ≤ b) :
+private lemma WienerIkeharaInterval [WienerIkehara] (ha : 0 < a) (hb : a ≤ b) :
     Tendsto (fun x : ℝ ↦ (∑' n, f n * (indicator (Ico a b) 1 (n / x))) / x) atTop
       (nhds (A * (b - a))) := by
   by_cases hab : a = b
@@ -934,7 +934,7 @@ lemma tsum_indicator [WienerIkehara] (hx : 0 < x) :
     simp +contextual [mem_Ico_iff_div hx]
   · simp +contextual [mem_Ico_iff_div hx]
 
-lemma WienerIkeharaInterval_discrete [WienerIkehara] (ha : 0 < a)
+private lemma WienerIkeharaInterval_discrete [WienerIkehara] (ha : 0 < a)
     (hb : a ≤ b) :
     Tendsto (fun x : ℝ ↦ (∑ n ∈ .Ico ⌈a * x⌉₊ ⌈b * x⌉₊, f n) / x) atTop
       (nhds (A * (b - a))) := by
@@ -942,13 +942,13 @@ lemma WienerIkeharaInterval_discrete [WienerIkehara] (ha : 0 < a)
   filter_upwards [eventually_gt_atTop 0] with x hx
   rw [tsum_indicator hx]
 
-lemma WienerIkeharaInterval_discrete' [WienerIkehara] (ha : 0 < a)
+private lemma WienerIkeharaInterval_discrete' [WienerIkehara] (ha : 0 < a)
     (hb : a ≤ b) :
     Tendsto (fun N : ℕ ↦ (∑ n ∈ Finset.Ico ⌈a * N⌉₊ ⌈b * N⌉₊, f n) / N) atTop
       (nhds (A * (b - a))) :=
   WienerIkeharaInterval_discrete ha hb |>.comp tendsto_natCast_atTop_atTop
 
-lemma tendsto_mul_ceil_div :
+private lemma tendsto_mul_ceil_div :
     Tendsto (fun (p : ℝ × ℕ) => ⌈p.1 * p.2⌉₊ / (p.2 : ℝ)) (𝓝[>] 0 ×ˢ atTop) (𝓝 0) := by
   apply squeeze_zero' (g := fun p : ℝ × ℕ => p.1 + 1 / p.2)
   · apply Filter.Eventually.of_forall
@@ -961,9 +961,9 @@ lemma tendsto_mul_ceil_div :
     simpa using (Filter.tendsto_fst.mono_right inf_le_left).add
       ((tendsto_one_div_atTop_nhds_zero_nat (𝕜 := ℝ)).comp Filter.tendsto_snd)
 
-def S [WienerIkehara] (ε : ℝ) (N : ℕ) : ℝ := (∑ n ∈ .Ico ⌈ε * N⌉₊ N, f n) / N
+private def S [WienerIkehara] (ε : ℝ) (N : ℕ) : ℝ := (∑ n ∈ .Ico ⌈ε * N⌉₊ N, f n) / N
 
-lemma S_sub_S [WienerIkehara] {ε : ℝ} {N : ℕ} (hε : ε ≤ 1) :
+private lemma S_sub_S [WienerIkehara] {ε : ℝ} {N : ℕ} (hε : ε ≤ 1) :
     S 0 N - S ε N = (∑ i ∈ .range ⌈ε * N⌉₊, f i) / N := by
   have : ⌈ε * N⌉₊ ≤ N := by
     rw [Nat.ceil_le]
@@ -973,7 +973,7 @@ lemma S_sub_S [WienerIkehara] {ε : ℝ} {N : ℕ} (hε : ε ≤ 1) :
     rw [Finset.range_eq_Ico]; apply Finset.Ico_disjoint_Ico_consecutive
   simp [S, r1, Finset.sum_union r2, add_div]
 
-lemma tendsto_S_S_zero [WienerIkehara] :
+private lemma tendsto_S_S_zero [WienerIkehara] :
     TendstoUniformlyOnFilter S (S 0) (𝓝[>] 0) atTop := by
   rw [Metric.tendstoUniformlyOnFilter_iff]; intro δ hδ
   have l1 : ∀ᶠ (p : ℝ × ℕ) in 𝓝[>] 0 ×ˢ atTop, C * ⌈p.1 * p.2⌉₊ / p.2 < δ := by
@@ -992,7 +992,7 @@ lemma tendsto_S_S_zero [WienerIkehara] :
 /-- A version of the *Wiener-Ikehara Tauberian Theorem*: If `f` is a nonnegative arithmetic
 function whose L-series has a simple pole at `s = 1` with residue `A` and otherwise extends
 continuously to the closed half-plane `re s ≥ 1`, then `∑ n < N, f n` is asymptotic to `A*N`. -/
-theorem WienerIkeharaTheorem [WienerIkehara] :
+theorem tendsto_sum_div [WienerIkehara] :
     Tendsto (fun N ↦ (∑ i ∈ .range N, f i) / N) atTop (𝓝 A) := by
   convert_to Tendsto (S 0) atTop (𝓝 A); · ext N; simp [S]
   apply tendsto_S_S_zero.tendsto_of_eventually_tendsto
@@ -1006,8 +1006,8 @@ theorem WienerIkeharaTheorem [WienerIkehara] :
 
 end WienerIkehara
 
-theorem WeakPNT : Tendsto (fun N ↦ (∑ i ∈ Finset.range N, Λ i) / N) atTop (𝓝 1) := by
-  let data : WienerIkehara := {
+theorem WeakPNT : Tendsto (fun N ↦ (∑ i ∈ Finset.range N, Λ i) / N) atTop (𝓝 1) :=
+  @WienerIkehara.tendsto_sum_div {
     f := Λ
     C := log 4 + 4
     bound N := by
@@ -1035,4 +1035,3 @@ theorem WeakPNT : Tendsto (fun N ↦ (∑ i ∈ Finset.range N, Λ i) / N) atTop
     hf σ hσ := LSeriesSummable_vonMangoldt (s := σ) hσ
     hpos := by intro; simp
   }
-  exact data.WienerIkeharaTheorem
