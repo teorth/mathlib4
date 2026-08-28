@@ -82,7 +82,7 @@ private lemma decay_bound (ψ : 𝓢(ℝ, ℂ)) (u : ℝ) :
 
 end SchwartzMap
 
-
+/- It is convenient to automatically coerce real-valued functions to complex-valued functions. -/
 local instance {E : Type*} : Coe (E → ℝ) (E → ℂ) := ⟨fun f n ↦ f n⟩
 
 /-- The data and hypotheses for the Wiener--Ikehara theorem.  Can be conveniently accessed inside
@@ -92,10 +92,14 @@ The `hf` hypothesis can be derived from `bound`, and `bound` is itself redundant
 these simplifications is non-trivial, and the hypotheses can usually be verified from existing
 API in practice anyway. -/
 class WienerIkehara where
+/- The function being estimated -/
   f : ℕ → ℝ
+/- The constant in the Chebyshev type bound -/
   C : ℝ
   bound : ∀ n, ∑ i ∈ .range n, ‖f i‖ ≤ C * n
+/- The asymptotic constant -/
   A : ℝ
+/- The extension of the Dirichlet series -/
   G : ℂ → ℂ
   hG : ContinuousOn G {s | 1 ≤ s.re}
   hG' : EqOn G (fun s ↦ LSeries f s - A / (s - 1)) {s | 1 < s.re}
@@ -108,32 +112,32 @@ private abbrev c₀ := π⁻¹ * 2⁻¹
 
 section FourierIdentities
 
-private def statistic₁ [WienerIkehara] (σ : ℝ) (φ : ℝ → ℂ) (x : ℝ) : ℂ :=
+private def statistic₁ [WienerIkehara] (σ : ℝ) (φ : 𝓢(ℝ, ℂ)) (x : ℝ) : ℂ :=
   ∑' n, term f σ n * φ (c₀ * log (n / x))
 
-private def statistic₂ [WienerIkehara] (σ : ℝ) (φ : ℝ → ℂ) (x : ℝ) : ℂ :=
+private def statistic₂ [WienerIkehara] (σ : ℝ) (φ : 𝓢(ℝ, ℂ)) (x : ℝ) : ℂ :=
   A * ↑(x ^ (1 - σ)) * ∫ u in Ici (- log x), rexp (-u * (σ - 1)) * φ (c₀ * u)
 
 /-- A key statistic in the Wiener--Ikehara analysis involving an exponent `σ`, a test
 function `φ`, and a scale parameter `x`. -/
-private def statistic [WienerIkehara] (σ : ℝ) (φ : ℝ → ℂ) (x : ℝ) : ℂ :=
+private def statistic [WienerIkehara] (σ : ℝ) (φ : 𝓢(ℝ, ℂ)) (x : ℝ) : ℂ :=
   statistic₁ σ φ x - statistic₂ σ φ x
 
-variable {x σ : ℝ} {ψ : ℝ → ℂ}
+variable {x σ : ℝ}
 
-private lemma sum_term_mul_fourier_eq [WienerIkehara] (hsupp : Integrable ψ) (hx : 0 < x)
-    (hσ : 1 < σ) : statistic₁ σ (𝓕 ψ) x =
-    ∫ t : ℝ, LSeries f (σ + t * I) * ψ t * x ^ (t * I) :=
+private lemma sum_term_mul_fourier_eq [WienerIkehara] (ψ : 𝓢(ℝ, ℂ)) (hx : 0 < x)
+    (hσ : 1 < σ) : statistic₁ σ (𝓕 ψ) x = ∫ t : ℝ, LSeries f (σ + t * I) * ψ t * x ^ (t * I) :=
   calc
     _ = ∑' n, ∫ t, term f σ n * 𝐞 (-(t * (c₀ * log (n / x)))) • ψ t := by
-      simp [statistic₁, fourier_eq, RCLike.inner_apply', -RCLike.inner_apply, integral_const_mul]
+      simp [statistic₁, ψ.fourier_coe, fourier_eq, RCLike.inner_apply', -RCLike.inner_apply,
+        integral_const_mul]
     _ = ∫ t, ∑' n, term f σ n * 𝐞 (-(t * (c₀ * log (n / x)))) • ψ t := by
       refine (integral_tsum (by fun_prop) ?_).symm
       have (n : ℕ) : AEMeasurable fun u ↦
         (‖fourierChar (-(u * (c₀ * (n / x).log))) • ψ u‖ₑ : ENNReal) := by fun_prop
       simp_rw [enorm_mul, lintegral_const_mul'' _ (this _)]
       have : (∑' (i : ℕ), (‖term f (↑σ) i‖₊ : ENNReal)) * ∫⁻ (a : ℝ), ‖ψ a‖ₑ ≠ ⊤ := by
-        refine ENNReal.mul_ne_top ?_ (ne_top_of_lt hsupp.2)
+        refine ENNReal.mul_ne_top ?_ (ne_top_of_lt ψ.integrable.2)
         simp_rw [ENNReal.tsum_coe_ne_top_iff_summable_coe, ← norm_toNNReal,
           NNReal.summable_coe, (hf σ hσ).norm.toNNReal]
       simp_all [ENNReal.tsum_mul_right, enorm_eq_nnnorm]
@@ -153,14 +157,13 @@ private lemma sum_term_mul_fourier_eq [WienerIkehara] (hsupp : Integrable ψ) (h
         grind
       · exact (hf σ hσ).of_re_le_re (by simp)
 
-private lemma integral_exp_mul_fourier_eq [WienerIkehara] (hcont : Measurable ψ)
-    (hsupp : Integrable ψ) (hx : 0 < x) (hσ : 1 < σ) : statistic₂ σ (𝓕 ψ) x =
-    A * ∫ t, (1 / (σ + t * I - 1)) * ψ t * x^(t * I) ∂ volume := by
+private lemma integral_exp_mul_fourier_eq [WienerIkehara] (ψ : 𝓢(ℝ, ℂ)) (hx : 0 < x) (hσ : 1 < σ) :
+    statistic₂ σ (𝓕 ψ) x = A * ∫ t, (1 / (σ + t * I - 1)) * ψ t * x^(t * I) ∂ volume := by
   unfold statistic₂; rw [mul_assoc]; congr 1
   calc
   _ = ↑(x ^ (1 - σ)) * ∫ u in Ici (-log x),
       ∫ a, (rexp (-u * (σ - 1)) : ℂ) • 𝐞 (-(a * (c₀ * u))) • ψ a := by
-    simp_rw [fourier_real_eq, ← smul_eq_mul, ← integral_smul]
+    simp_rw [ψ.fourier_coe, fourier_real_eq, ← smul_eq_mul, ← integral_smul]
   _ = ↑(x ^ (1 - σ)) * ∫ a, ∫ u in _, _ := by
     let ν : Measure (ℝ × ℝ) := (volume.restrict (Ici (-log x))).prod volume
     congr 1
@@ -173,7 +176,7 @@ private lemma integral_exp_mul_fourier_eq [WienerIkehara] (hcont : Measurable ψ
       simpa [hasFiniteIntegral_iff_enorm, enorm_eq_nnnorm, uncurry]
     apply (lintegral_prod_mul (by fun_prop) (by fun_prop)).trans_lt
     suffices IntegrableOn (fun (x : ℝ) ↦ cexp (-(x * (σ - 1)))) (Ici (-log x)) from
-      ENNReal.mul_lt_top this.2 hsupp.2
+      ENNReal.mul_lt_top this.2 ψ.integrable.2
     norm_cast
     refine .ofReal ?_
     rw [integrableOn_Ici_iff_integrableOn_Ioi]
@@ -207,13 +210,12 @@ private lemma integral_exp_mul_fourier_eq [WienerIkehara] (hcont : Measurable ψ
 
 /-- The main result of this section: an initial Fourier identity expressing a statistic of
 `f` as an error term of Fourier integral type. -/
-private lemma sum_term_mul_sub_mul_integral_eq [WienerIkehara]
-    (hψ1 : Continuous ψ) (hψ2 : HasCompactSupport ψ) (hx : 1 ≤ x) (σ : ℝ) (hσ : 1 < σ) :
+private lemma sum_term_mul_sub_mul_integral_eq [WienerIkehara] {ψ : 𝓢(ℝ, ℂ)}
+    (hψ : HasCompactSupport ψ) (hx : 1 ≤ x) (σ : ℝ) (hσ : 1 < σ) :
     statistic σ (𝓕 ψ) x = ∫ t : ℝ, G (σ + t * I) * ψ t * x ^ (t * I) := by
   have hx' : 0 < x := by linarith
-  have : Integrable ψ := hψ1.integrable_of_hasCompactSupport hψ2
-  simp_rw [statistic, sum_term_mul_fourier_eq this hx' hσ,
-    integral_exp_mul_fourier_eq hψ1.measurable this hx' hσ]
+  have : Integrable ψ := ψ.continuous.integrable_of_hasCompactSupport hψ
+  simp_rw [statistic, sum_term_mul_fourier_eq ψ hx' hσ, integral_exp_mul_fourier_eq ψ hx' hσ]
   have (u : ℝ) : σ + u * I - 1 ≠ 0 := by
     intro h; have := congr_arg re h; simp at this; linarith
   have : Continuous fun t : ℝ ↦ (x : ℂ) ^ (t * I) :=
@@ -228,8 +230,8 @@ private lemma sum_term_mul_sub_mul_integral_eq [WienerIkehara]
       · simpa [h] using continuous_const
       · simpa [h] using! continuous_const.div (continuous_const.cpow (by fun_prop) (by simp [h]))
           (by simp [h])
-    exact Continuous.integrable_of_hasCompactSupport (by fun_prop) hψ2.mul_left.mul_right
-  · apply Continuous.integrable_of_hasCompactSupport (by fun_prop) hψ2.mul_left.mul_right.mul_left
+    exact Continuous.integrable_of_hasCompactSupport (by fun_prop) hψ.mul_left.mul_right
+  · exact Continuous.integrable_of_hasCompactSupport (by fun_prop) hψ.mul_left.mul_right.mul_left
 
 end FourierIdentities
 
@@ -307,7 +309,7 @@ end HelperFunctions
 
 section LimitingFourierIdentity
 
-variable {x : ℝ} {ψ : ℝ → ℂ} (Ψ : 𝓢(ℝ, ℂ))
+variable {x : ℝ} (Ψ : 𝓢(ℝ, ℂ))
 
 private lemma bound_sum_log_range [WienerIkehara] (hx : 1 ≤ x) (n : ℕ) :
     ∑ i ∈ .range n, ‖f i‖ / i * (1 + (c₀ * log (i / x)) ^ 2)⁻¹ ≤ C * C₀ := by
@@ -334,7 +336,7 @@ private lemma bound_sum_log_range [WienerIkehara] (hx : 1 ≤ x) (n : ℕ) :
       (c := fun _ ↦ C) (fun k _ ↦ by simpa [mul_comm] using bound k) l1 l2
   gcongr; simp only [F₄_of_F₂ l0, F₅]
   by_cases h : n = 0
-  · simp only [h, Finset.range_zero, Finset.sum_empty, C₀_nonneg]
+  · simp [h, C₀_nonneg]
   have : Finset.range n = {0} ∪ .Ico 1 n := by grind
   simp only [this, Finset.singleton_union, Finset.mem_Ico, nonpos_iff_eq_zero, one_ne_zero,
     false_and, not_false_eq_true, Finset.sum_insert, ↓reduceIte, add_le_add_iff_left, ge_iff_le]
@@ -362,8 +364,8 @@ private lemma summable_sum_log_range [WienerIkehara] (hx : 1 ≤ x) :
     (fun n ↦ by simpa using bound_sum_log_range hx n)
 
 private theorem limiting_fourier_lim1 [WienerIkehara] (hx : 1 ≤ x) :
-    Tendsto (fun σ : ℝ ↦ statistic₁ σ (𝓕 Ψ : 𝓢(ℝ, ℂ)) x) (𝓝[>] 1)
-      (𝓝 (statistic₁ 1 (𝓕 Ψ : 𝓢(ℝ, ℂ)) x)) := by
+    Tendsto (fun σ : ℝ ↦ statistic₁ σ (𝓕 Ψ) x) (𝓝[>] 1)
+      (𝓝 (statistic₁ 1 (𝓕 Ψ) x)) := by
   unfold statistic₁
   refine tendsto_tsum_of_dominated_convergence ((summable_sum_log_range hx).mul_left Ψ.Q)
     (fun n ↦ ?_) ?_
@@ -383,8 +385,7 @@ private theorem limiting_fourier_lim1 [WienerIkehara] (hx : 1 ≤ x) :
     simp; grind
 
 private theorem limiting_fourier_lim2 [WienerIkehara] (hx : 1 ≤ x) :
-    Tendsto (fun σ ↦ statistic₂ σ (𝓕 Ψ : 𝓢(ℝ, ℂ)) x) (𝓝[>] 1)
-      (𝓝 (statistic₂ 1 (𝓕 Ψ : 𝓢(ℝ, ℂ)) x)) := by
+    Tendsto (fun σ ↦ statistic₂ σ (𝓕 Ψ) x) (𝓝[>] 1) (𝓝 (statistic₂ 1 (𝓕 Ψ) x)) := by
   apply Tendsto.mul
   · suffices Tendsto (fun σ : ℝ ↦ ofReal (x ^ (1 - σ))) (𝓝[>] 1) (𝓝 1) by
       simpa using this.const_mul ↑A
@@ -462,7 +463,8 @@ private theorem limiting_fourier_lim3 [WienerIkehara]
     · exact eventually_nhdsWithin_of_forall (fun x (hx : 1 < x) => by simp [hx.le])
 
 set_option backward.isDefEq.respectTransparency false in
-private lemma limiting_cor_aux : Tendsto (fun x : ℝ ↦ ∫ t, ψ t * x ^ (t * I)) atTop (𝓝 0) := by
+private lemma limiting_cor_aux {ψ : ℝ → ℂ} :
+    Tendsto (fun x : ℝ ↦ ∫ t, ψ t * x ^ (t * I)) atTop (𝓝 0) := by
   have : ∀ᶠ x : ℝ in atTop, ∫ t, ψ t * x ^ (t * I) = ∫ t, ψ t * exp (log x * t * I) := by
     filter_upwards [eventually_ne_atTop 0, eventually_ge_atTop 0] with x hx hx'
     refine integral_congr_ae (Eventually.of_forall (fun _ ↦ ?_))
@@ -478,14 +480,14 @@ private lemma limiting_cor_aux : Tendsto (fun x : ℝ ↦ ∫ t, ψ t * x ^ (t *
   exact tendsto_log_atTop.const_mul_atTop_of_neg (by simp [pi_pos])
 
 private lemma limiting_cor [WienerIkehara] {Ψ : 𝓢(ℝ, ℂ)} (hΨ : HasCompactSupport Ψ) :
-    Tendsto (statistic 1 (𝓕 Ψ : 𝓢(ℝ, ℂ))) atTop (𝓝 0) := by
+    Tendsto (statistic 1 (𝓕 Ψ)) atTop (𝓝 0) := by
   apply (limiting_cor_aux (ψ := fun t ↦ G (1 + t * I) * (Ψ t))).congr'
   filter_upwards [eventually_ge_atTop 1] with x hx
   unfold statistic
   apply (tendsto_nhds_unique_of_eventuallyEq ((limiting_fourier_lim1 Ψ (by linarith)).sub
     (limiting_fourier_lim2 Ψ hx)) (limiting_fourier_lim3 hΨ hx) _).symm
   simpa [eventuallyEq_nhdsWithin_iff] using!
-    Eventually.of_forall (sum_term_mul_sub_mul_integral_eq Ψ.continuous hΨ hx)
+    Eventually.of_forall (sum_term_mul_sub_mul_integral_eq hΨ hx)
 
 end LimitingFourierIdentity
 
@@ -498,7 +500,7 @@ private lemma summable_fourier_aux (x) (f : ℕ → ℂ) (n) :
       Ψ.Q * (‖f n‖ / n * (1 + (c₀ * log (n / x)) ^ 2)⁻¹) := by
   convert! mul_le_mul_of_nonneg_left (Ψ.decay_bound (1 / (2 * π) * log (n / x)))
     (norm_nonneg (f n / n)) using 1
-  · by_cases h : n = 0 <;> simp [term, h]
+  · simp [term_of_ne_zero']
   · simp; grind
 
 private lemma summable_fourier [WienerIkehara] (hx : 1 ≤ x) :
@@ -507,7 +509,7 @@ private lemma summable_fourier [WienerIkehara] (hx : 1 ≤ x) :
     (by simpa using (summable_sum_log_range hx).const_smul Ψ.Q)
 
 private lemma bound_I1 [WienerIkehara] (hx : 1 ≤ x) :
-    ‖statistic₁ 1 (𝓕 Ψ : 𝓢(ℝ, ℂ)) x‖ ≤
+    ‖statistic₁ 1 (𝓕 Ψ) x‖ ≤
     Ψ.Q • ∑' n, ‖f n‖ / n * (1 + (c₀ * log (n / x)) ^ 2)⁻¹ := by
   have l5 : Summable fun n ↦ ‖f n‖ / n * ((1 + (c₀ * (log (n / x))) ^ 2)⁻¹) := by
     simpa using summable_sum_log_range hx
@@ -520,7 +522,7 @@ private lemma bound_I1 [WienerIkehara] (hx : 1 ≤ x) :
   simp
 
 private lemma bound_I1' [WienerIkehara] (hx : 1 ≤ x) :
-    ‖statistic₁ 1 (𝓕 Ψ : 𝓢(ℝ, ℂ)) x‖ ≤ Ψ.Q * C * C₀ := by
+    ‖statistic₁ 1 (𝓕 Ψ) x‖ ≤ Ψ.Q * C * C₀ := by
   grw [bound_I1 Ψ hx, smul_eq_mul, mul_assoc]
   refine mul_le_mul le_rfl ?_ (tsum_nonneg (fun _ ↦ by positivity)) Ψ.Q_nonneg
   calc
@@ -546,7 +548,7 @@ private lemma bound_I2 (x : ℝ) :
   simp [abs_eq_self.mpr twopi]; grind
 
 private lemma bound_main [WienerIkehara] (hx : 1 ≤ x) :
-    ‖statistic 1 (𝓕 Ψ : 𝓢(ℝ, ℂ)) x‖ ≤ Ψ.Q * (C * C₀ + |A| * (2 * π ^ 2)) := by
+    ‖statistic 1 (𝓕 Ψ) x‖ ≤ Ψ.Q * (C * C₀ + |A| * (2 * π ^ 2)) := by
   unfold statistic statistic₂
   grw [norm_sub_le, bound_I1' _ hx, norm_mul]
   simp only [sub_self, rpow_zero, ofReal_one, mul_one, norm_real, norm_eq_abs, mul_zero,
@@ -555,39 +557,25 @@ private lemma bound_main [WienerIkehara] (hx : 1 ≤ x) :
   grind
 
 private lemma limiting_cor_schwartz [WienerIkehara] :
-    Tendsto (statistic 1 (𝓕 Ψ : 𝓢(ℝ, ℂ))) atTop (𝓝 0) := by
-  have hC : 0 ≤ C := by
-    have h1 : ‖f 0‖ ≤ C := by simpa using bound 1
-    linarith [norm_nonneg (f 0)]
+    Tendsto (statistic 1 (𝓕 Ψ)) atTop (𝓝 0) := by
+  have hC : 0 ≤ C := by linarith [norm_nonneg (f 0), (by simpa using bound 1 : ‖f 0‖ ≤ C)]
   simp_rw [Metric.tendsto_nhds]; intro ε hε
-  let M := C * C₀ + |A| * (2 * π ^ 2)
-  have hM : 0 < 1 + M := by positivity [C₀_nonneg]
-  obtain ⟨φ, hφcs, hφQ⟩ : ∃ φ : 𝓢(ℝ, ℂ), HasCompactSupport (φ : ℝ → ℂ) ∧
-      (Ψ - φ).Q < (ε / 2) / (1 + M) := by
-    have hcont : Continuous fun φ : 𝓢(ℝ, ℂ) ↦ (Ψ - φ).Q :=
-      SchwartzMap.Q_continuous.comp (continuous_const.sub continuous_id)
-    have hψmem : Ψ ∈ {φ : 𝓢(ℝ, ℂ) | (Ψ - φ).Q < (ε / 2) / (1 + M)} := by
-      change (Ψ - Ψ).Q < (ε / 2) / (1 + M)
-      rw [show (Ψ - Ψ).Q = 0 by simp [sub_self, Q, _root_.map_zero]]; positivity
-    obtain ⟨φ, hφcs, hφQ⟩ := SchwartzMap.dense_hasCompactSupport.inter_open_nonempty _
-      (isOpen_lt hcont continuous_const) ⟨Ψ, hψmem⟩
-    exact ⟨φ, hφQ, hφcs⟩
-  have key := limiting_cor hφcs
-  simp_rw [Metric.tendsto_nhds, dist_zero_right] at key
-  filter_upwards [eventually_ge_atTop 1, key (ε / 2) (by positivity)] with x hx keyx
+  have hψmem : (Ψ - Ψ).Q < (ε / 2) / (max 1 (C * C₀ + |A| * (2 * π ^ 2))) := by
+    simp only [Q, sub_self, FourierTransform.fourier_zero, _root_.map_zero, add_zero]; positivity
+  obtain ⟨φ, hφQ : (Ψ - φ).Q < _, hφcs⟩ :=
+    SchwartzMap.dense_hasCompactSupport.inter_open_nonempty _
+    (isOpen_lt (SchwartzMap.Q_continuous.comp (by fun_prop)) continuous_const) ⟨Ψ, hψmem⟩
+  have := limiting_cor hφcs
+  simp_rw [Metric.tendsto_nhds, dist_zero_right] at this
+  filter_upwards [eventually_ge_atTop 1, this (ε / 2) (by positivity)] with x hx keyx
   have hFsub (t : ℝ) : 𝓕 (Ψ - φ) t = 𝓕 Ψ t - 𝓕 φ t := by
-    have h : 𝓕 (Ψ - φ) t = (fourierTransformCLM ℂ (Ψ - φ)) t := rfl
-    rw [h, map_sub, sub_apply]; rfl
-  have hsummψ : Summable fun n : ℕ ↦ (term f 1 n) * 𝓕 Ψ (c₀ * log (↑n / x)) := by
-    have h := summable_fourier Ψ hx; rwa [summable_norm_iff] at h
-  have hsummφ : Summable fun n : ℕ ↦ (term f 1 n) * 𝓕 φ (c₀ * log (↑n / x)) := by
-    have h := summable_fourier φ hx; rwa [summable_norm_iff] at h
-  have S1_sub : statistic₁ 1 (𝓕 (Ψ - φ) : 𝓢(ℝ, ℂ)) x = statistic₁ 1 (𝓕 Ψ : 𝓢(ℝ, ℂ)) x -
-    statistic₁ 1 (𝓕 φ : 𝓢(ℝ, ℂ)) x := by
-    simp only [statistic₁]; rw [ofReal_one, ← hsummψ.tsum_sub hsummφ]
-    exact tsum_congr fun n ↦ by rw [hFsub]; ring
-  have S2_sub : statistic₂ 1 (𝓕 (Ψ - φ) : 𝓢(ℝ, ℂ)) x = statistic₂ 1 (𝓕 Ψ : 𝓢(ℝ, ℂ)) x -
-    statistic₂ 1 (𝓕 φ : 𝓢(ℝ, ℂ)) x := by
+    simp_rw [← fourierTransformCLM_apply ℂ, map_sub, sub_apply]
+  have : statistic₁ 1 (𝓕 (Ψ - φ)) x = statistic₁ 1 (𝓕 Ψ) x - statistic₁ 1 (𝓕 φ) x := by
+    unfold statistic₁; rw [ofReal_one, ← Summable.tsum_sub]
+    · exact tsum_congr fun _ ↦ by rw [hFsub]; ring
+    · simpa [← summable_norm_iff] using summable_fourier Ψ hx
+    · simpa [← summable_norm_iff] using summable_fourier φ hx
+  have : statistic₂ 1 (𝓕 (Ψ - φ)) x = statistic₂ 1 (𝓕 Ψ) x - statistic₂ 1 (𝓕 φ) x := by
     simp only [statistic₂, sub_self, rpow_zero, ofReal_one, mul_one, mul_zero, Real.exp_zero,
       one_mul]
     rw [← mul_sub, ← integral_sub]
@@ -595,14 +583,12 @@ private lemma limiting_cor_schwartz [WienerIkehara] :
       exact setIntegral_congr_fun measurableSet_Ici fun _ _ ↦ hFsub _
     · exact ((𝓕 Ψ).integrable.comp_mul_left' (by positivity)).restrict
     · exact ((𝓕 φ).integrable.comp_mul_left' (by positivity)).restrict
-  have : statistic 1 (𝓕 Ψ : 𝓢(ℝ, ℂ)) x = statistic 1 (𝓕 (Ψ - φ) : 𝓢(ℝ, ℂ)) x
-    + statistic 1 (𝓕 φ : 𝓢(ℝ, ℂ)) x := by unfold statistic; grind
-  have : ‖statistic 1 (𝓕 (Ψ - φ) : 𝓢(ℝ, ℂ)) x‖ < ε / 2 := by
-    have hb : ‖statistic 1 (𝓕 (Ψ - φ) : 𝓢(ℝ, ℂ)) x‖ ≤ (Ψ - φ).Q * M := bound_main (Ψ - φ) hx
-    apply hb.trans_lt
-    apply (mul_le_mul (d := 1 + M) le_rfl (by simp)
-      (by positivity [C₀_nonneg]) (Q_nonneg _)).trans_lt
-    convert! (mul_lt_mul_iff_left₀ hM).mpr hφQ using 1; field_simp
+  have : statistic 1 (𝓕 Ψ) x = statistic 1 (𝓕 (Ψ - φ)) x + statistic 1 (𝓕 φ) x := by
+    unfold statistic; grind
+  have : ‖statistic 1 (𝓕 (Ψ - φ)) x‖ ≤ ε / 2 := by
+    grw [bound_main (Ψ - φ) hx, hφQ]
+    · field_simp; grind
+    · positivity [C₀_nonneg]
   grind [dist_zero_right, norm_add_le]
 
 end LimitingFourierIdentitySchwartz
