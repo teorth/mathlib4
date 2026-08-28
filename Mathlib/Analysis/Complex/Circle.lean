@@ -45,7 +45,9 @@ is the kernel of the homomorphism `Complex.normSq` from `ℂ` to `ℝ`.
 
 noncomputable section
 
-open Complex Function Metric ComplexConjugate
+open Complex Function Metric
+
+open scoped ComplexConjugate
 
 /-- The unit circle in `ℂ`. -/
 @[wikidata Q203425]
@@ -73,7 +75,6 @@ lemma coe_inj : (x : ℂ) = y ↔ x = y := coe_injective.eq_iff
 @[simp] lemma nnnorm_coe (z : Circle) : ‖(z : ℂ)‖₊ = 1 := NNReal.coe_injective z.norm_coe
 @[simp] lemma enorm_coe (z : Circle) : ‖(z : ℂ)‖ₑ = 1 := by simp [enorm_eq_nnnorm]
 
-set_option backward.isDefEq.respectTransparency false in
 @[simp] lemma normSq_coe (z : Circle) : normSq z = 1 := by simp [normSq_eq_norm_sq]
 @[simp] lemma coe_ne_zero (z : Circle) : (z : ℂ) ≠ 0 := ne_zero_of_mem_unit_sphere z
 @[simp, norm_cast] lemma coe_one : ↑(1 : Circle) = (1 : ℂ) := rfl
@@ -225,7 +226,7 @@ def fourierChar : AddChar ℝ Circle where
 
 @[inherit_doc] scoped[FourierTransform] notation "𝐞" => Real.fourierChar
 
-open FourierTransform
+open scoped FourierTransform
 
 theorem fourierChar_apply' (x : ℝ) : 𝐞 x = Circle.exp (2 * π * x) := rfl
 
