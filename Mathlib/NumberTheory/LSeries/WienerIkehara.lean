@@ -29,19 +29,21 @@ continuously to `Re s ≥ 1` after subtracting `A / (s - 1)`.  Then
 
 ## Main results
 
-* `WienerIkeharaTheorem'`: the Wiener-Ikehara Tauberian theorem.
+* `WienerIkehara.tendsto_sum_div`: the Wiener-Ikehara Tauberian theorem.
 * `WeakPNT`: the prime number theorem `∑ n < N, Λ n = N + o(N)` as a consequence.
 
 ## Proof outline
 
-Writing `ψ̂` for the Fourier transform, the proof passes through the identities
-`∑ f n / n ^ σ * ψ̂ (log (n / x) / (2 * π)) = ∫ F (σ + I * t) * ψ t * x ^ (I * t)` (`first_fourier`)
-and its companion for the polar part (`second_fourier`); letting `σ → 1` gives the limiting
-Fourier identity (`limiting_fourier`), and the Riemann-Lebesgue lemma turns it into an asymptotic
-(`limiting_cor`).  Surjectivity of the Fourier transform on Schwartz space upgrades this to a
-smoothed form of the theorem (`wiener_ikehara_smooth`), and non-negativity of `f` together with a
-smooth Urysohn lemma replaces the smooth cutoff by the indicator of an interval
-(`WienerIkeharaInterval`), whence the theorem.
+Writing `ψ̂` for the Fourier transform, the proof studies `S σ ψ̂ x`, the difference
+between `∑' n, term f σ n * ψ̂ (log (n / x) / (2 * π))` and its polar counterpart.  Rewriting both
+halves as Fourier integrals (`sum_term_mul_fourier_eq`, `integral_exp_mul_fourier_eq`) cancels the
+pole and expresses the S through `G` (`sum_term_mul_sub_mul_integral_eq`); letting `σ → 1`
+and applying the Riemann-Lebesgue lemma gives `S 1 ψ̂ x → 0`, first for compactly supported
+test functions (`limiting_cor`) and then for all Schwartz functions (`limiting_cor_schwartz`).
+Surjectivity of the Fourier transform on Schwartz space upgrades this to a smoothed form of the
+theorem (`wiener_ikehara_smooth`), and non-negativity of `f` together with a smooth Urysohn lemma
+(`exists_contDiff_one_on_Icc_support_eq_Ioo`) replaces the smooth cutoff by the indicator of an
+interval, whence the theorem (`tendsto_sum_div`).
 
 This file is a draft port from the `PrimeNumberTheoremAnd` project.
 -/
@@ -88,9 +90,9 @@ local instance {E : Type*} : Coe (E → ℝ) (E → ℂ) := ⟨fun f n ↦ f n�
 /-- The data and hypotheses for the Wiener--Ikehara theorem.  Can be conveniently accessed inside
 the `WienerIkehara` namespace by adding a `[WienerIkehara]` instance.
 
-The `hf` hypothesis can be derived from `bound`, and `bound` is itself redundant, but implementing
-these simplifications is non-trivial, and the hypotheses can usually be verified from existing
-API in practice anyway. -/
+The `hf` hypothesis can be derived from `bound`, and `bound` and `hA` are in fact redundant; but
+implementing these simplifications is non-trivial, and the hypotheses can usually be easily
+verified from existing API in practice anyway. -/
 class WienerIkehara where
 /- The function being estimated -/
   f : ℕ → ℝ
@@ -99,6 +101,7 @@ class WienerIkehara where
   bound : ∀ n, ∑ i ∈ .range n, ‖f i‖ ≤ C * n
 /- The asymptotic constant -/
   A : ℝ
+  hA : 0 ≤ A
 /- The extension of the Dirichlet series -/
   G : ℂ → ℂ
   hG : ContinuousOn G {s | 1 ≤ s.re}
@@ -114,24 +117,24 @@ private lemma C_nonneg [WienerIkehara] : 0 ≤ C := (norm_nonneg (f 0)).trans (b
 
 section FourierIdentities
 
-private def statistic₁ [WienerIkehara] (σ : ℝ) (φ : 𝓢(ℝ, ℂ)) (x : ℝ) : ℂ :=
+private def S₁ [WienerIkehara] (σ : ℝ) (φ : 𝓢(ℝ, ℂ)) (x : ℝ) : ℂ :=
   ∑' n, term f σ n * φ (c₀ * log (n / x))
 
-private def statistic₂ [WienerIkehara] (σ : ℝ) (φ : 𝓢(ℝ, ℂ)) (x : ℝ) : ℂ :=
+private def S₂ [WienerIkehara] (σ : ℝ) (φ : 𝓢(ℝ, ℂ)) (x : ℝ) : ℂ :=
   A * ↑(x ^ (1 - σ)) * ∫ u in Ici (- log x), rexp (-u * (σ - 1)) * φ (c₀ * u)
 
-/-- A key statistic in the Wiener--Ikehara analysis involving an exponent `σ`, a test
+/-- A key S in the Wiener--Ikehara analysis involving an exponent `σ`, a test
 function `φ`, and a scale parameter `x`. -/
-private def statistic [WienerIkehara] (σ : ℝ) (φ : 𝓢(ℝ, ℂ)) (x : ℝ) : ℂ :=
-  statistic₁ σ φ x - statistic₂ σ φ x
+private def S [WienerIkehara] (σ : ℝ) (φ : 𝓢(ℝ, ℂ)) (x : ℝ) : ℂ :=
+  S₁ σ φ x - S₂ σ φ x
 
 variable {x σ : ℝ} (ψ : 𝓢(ℝ, ℂ))
 
 private lemma sum_term_mul_fourier_eq [WienerIkehara] (hx : 0 < x) (hσ : 1 < σ) :
-    statistic₁ σ (𝓕 ψ) x = ∫ t : ℝ, LSeries f (σ + t * I) * ψ t * x ^ (t * I) :=
+    S₁ σ (𝓕 ψ) x = ∫ t : ℝ, LSeries f (σ + t * I) * ψ t * x ^ (t * I) :=
   calc
     _ = ∑' n, ∫ t, term f σ n * 𝐞 (-(c₀ * log (n / x) * t)) • ψ t := by
-      simp [statistic₁, ψ.fourier_coe, fourier_eq, integral_const_mul]
+      simp [S₁, ψ.fourier_coe, fourier_eq, integral_const_mul]
     _ = ∫ t, ∑' n, _ := by
       refine (integral_tsum (by fun_prop) ?_).symm
       have (n : ℕ) : AEMeasurable fun t ↦
@@ -158,8 +161,8 @@ private lemma sum_term_mul_fourier_eq [WienerIkehara] (hx : 0 < x) (hσ : 1 < σ
       · exact (hf σ hσ).of_re_le_re (by simp)
 
 private lemma integral_exp_mul_fourier_eq [WienerIkehara] (hx : 0 < x) (hσ : 1 < σ) :
-    statistic₂ σ (𝓕 ψ) x = A * ∫ t, (1 / (σ + t * I - 1)) * ψ t * x^(t * I) ∂volume := by
-  unfold statistic₂; rw [mul_assoc]; congr 1
+    S₂ σ (𝓕 ψ) x = A * ∫ t, (1 / (σ + t * I - 1)) * ψ t * x^(t * I) ∂volume := by
+  unfold S₂; rw [mul_assoc]; congr 1
   calc
   _ = ↑(x ^ (1 - σ)) * ∫ u in Ici (-log x),
       ∫ a, (rexp (-u * (σ - 1)) : ℂ) • 𝐞 (-(a * (c₀ * u))) • ψ a := by
@@ -207,13 +210,13 @@ private lemma integral_exp_mul_fourier_eq [WienerIkehara] (hx : 0 < x) (hσ : 1 
         ring_nf
         simp
 
-/-- The main result of this section: an initial Fourier identity expressing a statistic of
+/-- The main result of this section: an initial Fourier identity expressing a S of
 `f` as an error term of Fourier integral type. -/
 private lemma sum_term_mul_sub_mul_integral_eq [WienerIkehara] {ψ : 𝓢(ℝ, ℂ)}
     (hψ : HasCompactSupport ψ) (hx : 1 ≤ x) (σ : ℝ) (hσ : 1 < σ) :
-    statistic σ (𝓕 ψ) x = ∫ t : ℝ, G (σ + t * I) * ψ t * x ^ (t * I) := by
+    S σ (𝓕 ψ) x = ∫ t : ℝ, G (σ + t * I) * ψ t * x ^ (t * I) := by
   have hx' : 0 < x := by linarith
-  simp_rw [statistic, sum_term_mul_fourier_eq ψ hx' hσ, integral_exp_mul_fourier_eq ψ hx' hσ]
+  simp_rw [S, sum_term_mul_fourier_eq ψ hx' hσ, integral_exp_mul_fourier_eq ψ hx' hσ]
   have (u : ℝ) : σ + u * I - 1 ≠ 0 := by
     intro h; have := congr(re $h); simp at this; linarith
   have : Continuous fun t : ℝ ↦ (x : ℂ) ^ (t * I) :=
@@ -356,9 +359,9 @@ private lemma summable_sum_log_range [WienerIkehara] (hx : 1 ≤ x) :
     (fun n ↦ by simpa using bound_sum_log_range hx n)
 
 private theorem limiting_fourier_lim1 [WienerIkehara] (hx : 1 ≤ x) :
-    Tendsto (fun σ : ℝ ↦ statistic σ (𝓕 Ψ) x) (𝓝[>] 1)
-      (𝓝 (statistic 1 (𝓕 Ψ) x)) := by
-  unfold statistic statistic₁
+    Tendsto (fun σ : ℝ ↦ S σ (𝓕 Ψ) x) (𝓝[>] 1)
+      (𝓝 (S 1 (𝓕 Ψ) x)) := by
+  unfold S S₁
   apply Tendsto.sub
   · refine tendsto_tsum_of_dominated_convergence ((summable_sum_log_range hx).mul_left Ψ.Q)
       (fun n ↦ ?_) ?_
@@ -463,10 +466,10 @@ private lemma limiting_cor_aux {ψ : ℝ → ℂ} :
   exact tendsto_log_atTop.const_mul_atTop_of_neg (by simp [pi_pos])
 
 private lemma limiting_cor [WienerIkehara] {Ψ : 𝓢(ℝ, ℂ)} (hΨ : HasCompactSupport Ψ) :
-    Tendsto (statistic 1 (𝓕 Ψ)) atTop (𝓝 0) := by
+    Tendsto (S 1 (𝓕 Ψ)) atTop (𝓝 0) := by
   apply (limiting_cor_aux (ψ := fun t ↦ G (1 + t * I) * (Ψ t))).congr'
   filter_upwards [eventually_ge_atTop 1] with x hx
-  unfold statistic
+  unfold S
   apply (tendsto_nhds_unique_of_eventuallyEq (limiting_fourier_lim1 Ψ hx)
     (limiting_fourier_lim3 hΨ hx) _).symm
   simpa [eventuallyEq_nhdsWithin_iff] using!
@@ -492,20 +495,20 @@ private lemma summable_fourier [WienerIkehara] (hx : 1 ≤ x) :
     (by simpa using (summable_sum_log_range hx).const_smul Ψ.Q)
 
 private lemma bound_I1 [WienerIkehara] (hx : 1 ≤ x) :
-    ‖statistic₁ 1 (𝓕 Ψ) x‖ ≤
+    ‖S₁ 1 (𝓕 Ψ) x‖ ≤
     Ψ.Q • ∑' n, ‖f n‖ / n * (1 + (c₀ * log (n / x)) ^ 2)⁻¹ := by
   have l5 : Summable fun n ↦ ‖f n‖ / n * ((1 + (c₀ * (log (n / x))) ^ 2)⁻¹) := by
     simpa using summable_sum_log_range hx
   have l1 : Summable fun n ↦ ‖(term f 1 n) * 𝓕 Ψ (c₀ * log (n / x))‖ :=
     summable_fourier Ψ hx
-  unfold statistic₁
+  unfold S₁
   apply (norm_tsum_le_tsum_norm l1).trans
   grw [Summable.tsum_mono l1 (by simpa using l5.const_smul Ψ.Q) (summable_fourier_aux Ψ x f)
     , ← Summable.tsum_const_smul _ l5]
   simp
 
 private lemma bound_I1' [WienerIkehara] (hx : 1 ≤ x) :
-    ‖statistic₁ 1 (𝓕 Ψ) x‖ ≤ Ψ.Q * C * C₀ := by
+    ‖S₁ 1 (𝓕 Ψ) x‖ ≤ Ψ.Q * C * C₀ := by
   grw [bound_I1 Ψ hx, smul_eq_mul, mul_assoc]
   refine mul_le_mul le_rfl ?_ (tsum_nonneg (fun _ ↦ by positivity)) Ψ.Q_nonneg
   calc
@@ -525,7 +528,7 @@ private lemma bound_I2 (x : ℝ) :
     simp [abs_eq_self.mpr this]; grind
   · exact Eventually.of_forall fun _ ↦ by positivity
 
-private lemma limiting_cor_schwartz [WienerIkehara] : Tendsto (statistic 1 (𝓕 Ψ)) atTop (𝓝 0) := by
+private lemma limiting_cor_schwartz [WienerIkehara] : Tendsto (S 1 (𝓕 Ψ)) atTop (𝓝 0) := by
   simp_rw [Metric.tendsto_nhds]; intro ε hε
   have hψmem : (Ψ - Ψ).Q < (ε / 2) / (max 1 (C * C₀ + |A| * (2 * π ^ 2))) := by
     simp only [Q, sub_self, FourierTransform.fourier_zero, _root_.map_zero, add_zero]; positivity
@@ -537,23 +540,23 @@ private lemma limiting_cor_schwartz [WienerIkehara] : Tendsto (statistic 1 (𝓕
   filter_upwards [eventually_ge_atTop 1, this (ε / 2) (by positivity)] with x hx _
   have hFsub (t : ℝ) : 𝓕 (Ψ - φ) t = 𝓕 Ψ t - 𝓕 φ t := by
     simp_rw [← fourierTransformCLM_apply ℂ, map_sub, sub_apply]
-  have : statistic₁ 1 (𝓕 (Ψ - φ)) x = statistic₁ 1 (𝓕 Ψ) x - statistic₁ 1 (𝓕 φ) x := by
-    unfold statistic₁; rw [ofReal_one, ← Summable.tsum_sub]
+  have : S₁ 1 (𝓕 (Ψ - φ)) x = S₁ 1 (𝓕 Ψ) x - S₁ 1 (𝓕 φ) x := by
+    unfold S₁; rw [ofReal_one, ← Summable.tsum_sub]
     · exact tsum_congr fun _ ↦ by rw [hFsub]; ring
     · simpa [← summable_norm_iff] using summable_fourier Ψ hx
     · simpa [← summable_norm_iff] using summable_fourier φ hx
-  have : statistic₂ 1 (𝓕 (Ψ - φ)) x = statistic₂ 1 (𝓕 Ψ) x - statistic₂ 1 (𝓕 φ) x := by
-    simp only [statistic₂, sub_self, rpow_zero, ofReal_one, mul_one, mul_zero, Real.exp_zero,
+  have : S₂ 1 (𝓕 (Ψ - φ)) x = S₂ 1 (𝓕 Ψ) x - S₂ 1 (𝓕 φ) x := by
+    simp only [S₂, sub_self, rpow_zero, ofReal_one, mul_one, mul_zero, Real.exp_zero,
       one_mul]
     rw [← mul_sub, ← integral_sub]
     · congr 1
       exact setIntegral_congr_fun measurableSet_Ici fun _ _ ↦ hFsub _
     · exact ((𝓕 Ψ).integrable.comp_mul_left' (by positivity)).restrict
     · exact ((𝓕 φ).integrable.comp_mul_left' (by positivity)).restrict
-  have : statistic 1 (𝓕 Ψ) x = statistic 1 (𝓕 (Ψ - φ)) x + statistic 1 (𝓕 φ) x := by
-    unfold statistic; grind
-  have : ‖statistic 1 (𝓕 (Ψ - φ)) x‖ ≤ ε / 2 := by
-    unfold statistic statistic₂
+  have : S 1 (𝓕 Ψ) x = S 1 (𝓕 (Ψ - φ)) x + S 1 (𝓕 φ) x := by
+    unfold S; grind
+  have : ‖S 1 (𝓕 (Ψ - φ)) x‖ ≤ ε / 2 := by
+    unfold S S₂
     grw [norm_sub_le, bound_I1' _ hx, norm_mul]
     simp only [sub_self, rpow_zero, ofReal_one, mul_one, norm_real, norm_eq_abs, mul_zero,
       Real.exp_zero, one_mul]
@@ -625,10 +628,10 @@ private lemma wiener_ikehara_smooth [WienerIkehara] (hsmooth : ContDiff ℝ ∞ 
     field_simp
     norm_cast
     rw [Real.exp_log hy]
-  have l2 : ∀ᶠ x in atTop, statistic 1 (𝓕 g : 𝓢(ℝ, ℂ)) x =
+  have l2 : ∀ᶠ x in atTop, S 1 (𝓕 g : 𝓢(ℝ, ℂ)) x =
       ∑' (n : ℕ), f n * ψ (n / x) / x - A * ∫ (y : ℝ) in Ioi x⁻¹, ψ y := by
     filter_upwards [eventually_gt_atTop 0] with x hx
-    unfold statistic statistic₁
+    unfold S S₁
     congr
     · ext n
       by_cases hn : n = 0
@@ -638,7 +641,7 @@ private lemma wiener_ikehara_smooth [WienerIkehara] (hsmooth : ContDiff ℝ ∞ 
       have : (x : ℂ) ≠ 0 := by simpa using hx.ne.symm
       simp [ofReal_div, ofReal_natCast, term, hn]
       field_simp
-    · simp [statistic₂, hg, HasCompactSupport.toSchwartzMap_toFun, h]
+    · simp [S₂, hg, HasCompactSupport.toSchwartzMap_toFun, h]
       field_simp; norm_cast
       rw [MeasureTheory.integral_Ici_eq_integral_Ioi]
       left
@@ -681,54 +684,29 @@ lemma exists_contDiff_one_on_Icc_support_eq_Ioo (hab : a < b) (hcd : c < d) :
     simp only [mem_support, not_not] at hx'
     exact hx'.le
 
-private lemma interval_approx_inf (ha : 0 < a) (hab : a < b) :
-    ∀ᶠ ε in 𝓝[>] 0, ∃ ψ : ℝ → ℝ, ContDiff ℝ ∞ ψ ∧ HasCompactSupport ψ ∧
-      closure (support ψ) ⊆ Ioi 0 ∧
-        ψ ≤ indicator (Ico a b) 1 ∧ b - a - ε ≤ ∫ y in Ioi 0, ψ y := by
-  have l1 : Iio ((b - a) / 3) ∈ 𝓝[>] 0 := nhdsWithin_le_nhds <| Iio_mem_nhds <| by
-    rw [← sub_pos] at hab
-    positivity
-  filter_upwards [self_mem_nhdsWithin, l1] with ε (hε : 0 < ε) (hε' : ε < (b - a) / 3)
-  have l2 : a < a + ε / 2 := by simp [hε]
-  have l3 : b - ε / 2 < b := by simp [hε]
-  obtain ⟨ψ, h1, h2, h3, h4, h5⟩ := exists_contDiff_one_on_Icc_support_eq_Ioo l2 l3
-  refine ⟨ψ, h1, h2, ?_, ?_, ?_⟩
-  · simp [h5, hab.ne, Icc_subset_Ioi_iff hab.le, ha]
-  · exact h4.trans <| indicator_le_indicator_of_subset Ioo_subset_Ico_self (by simp)
-  · have : Icc (a + ε / 2) (b - ε / 2) ∩ Ioi 0 = Icc (a + ε / 2) (b - ε / 2) := by grind
-    have : ∫ y in Ioi 0, indicator (Icc (a + ε / 2) (b - ε / 2)) 1 y = b - a - ε := by
-      simp only [measurableSet_Icc, integral_indicator_one, measureReal_restrict_apply, this,
-        volume_real_Icc]
-      convert max_eq_left (by linarith : 0 ≤ b - a - ε) using 1; ring_nf
-    rw [← this]
-    apply setIntegral_mono ?_ (h1.continuous.integrable_of_hasCompactSupport h2).integrableOn h3
-    rw [IntegrableOn, integrable_indicator_iff measurableSet_Icc]
-    apply IntegrableOn.mono ?_ subset_rfl Measure.restrict_le_self
-    apply integrableOn_const <;> simp
-
-private lemma interval_approx_sup (ha : 0 < a) (hab : a < b) :
-    ∀ᶠ ε in 𝓝[>] 0, ∃ ψ : ℝ → ℝ, ContDiff ℝ ∞ ψ ∧ HasCompactSupport ψ ∧
-      closure (support ψ) ⊆ Ioi 0 ∧
-        indicator (Ico a b) 1 ≤ ψ ∧ ∫ y in Ioi 0, ψ y ≤ b - a + ε := by
-  have l1 : Iio (a / 2) ∈ 𝓝[>] 0 := nhdsWithin_le_nhds <| Iio_mem_nhds (by linarith)
-  filter_upwards [self_mem_nhdsWithin, l1] with ε (hε : 0 < ε) (hε' : ε < a / 2)
-  obtain ⟨ψ, h1, h2, h3, h4, h5⟩ := exists_contDiff_one_on_Icc_support_eq_Ioo
-    (by linarith : a - ε / 2 < a) (by linarith : b < b + ε / 2)
-  refine ⟨ψ, h1, h2, ?_, ?_, ?_⟩
-  · have l4 : a - ε / 2 < b + ε / 2 := by linarith
-    have l5 : ε / 2 < a := by linarith
-    simp [h5, l4.ne, Icc_subset_Ioi_iff l4.le, l5]
-  · apply le_trans (indicator_le_indicator_of_subset Ico_subset_Icc_self (by simp)) h3
-  · have : Ioo (a - ε / 2) (b + ε / 2) ∩ Ioi 0 = Ioo (a - ε / 2) (b + ε / 2) := by grind
-    have : ∫ y in Ioi 0, indicator (Ioo (a - ε / 2) (b + ε / 2)) 1 y = b - a + ε := by
-      simp only [measurableSet_Ioo, integral_indicator_one, measureReal_restrict_apply, this,
-        volume_real_Ioo]
-      convert max_eq_left (by linarith : b - a + ε ≥ 0) using 1; ring_nf
-    rw [← this]
-    apply setIntegral_mono (h1.continuous.integrable_of_hasCompactSupport h2).integrableOn ?_ h4
-    rw [IntegrableOn, integrable_indicator_iff measurableSet_Ioo]
-    apply IntegrableOn.mono ?_ subset_rfl Measure.restrict_le_self
-    apply integrableOn_const <;> simp
+/-- A version of `exists_contDiff_one_on_Icc_support_eq_Ioo` for cutoffs supported away from the
+origin, additionally controlling the integral of the cutoff from above and below by the lengths of
+`Ioo a d` and `Icc b c` respectively. -/
+private lemma exists_cutoff (ha : 0 < a) (hab : a < b) (hbc : b ≤ c) (hcd : c < d) :
+    ∃ ψ : ℝ → ℝ, ContDiff ℝ ∞ ψ ∧ HasCompactSupport ψ ∧ closure (support ψ) ⊆ Ioi 0 ∧
+      indicator (Icc b c) 1 ≤ ψ ∧ ψ ≤ indicator (Ioo a d) 1 ∧
+      c - b ≤ ∫ y in Ioi 0, ψ y ∧ ∫ y in Ioi 0, ψ y ≤ d - a := by
+  have had : a < d := hab.trans_le (hbc.trans hcd.le)
+  obtain ⟨ψ, h1, h2, h3, h4, h5⟩ := exists_contDiff_one_on_Icc_support_eq_Ioo hab hcd
+  have hsupp : closure (support ψ) ⊆ Ioi 0 := by
+    simp [h5, had.ne, Icc_subset_Ioi_iff had.le, ha]
+  have hψ : Integrable ψ := h1.continuous.integrable_of_hasCompactSupport h2
+  have hfull : ∫ y in Ioi 0, ψ y = ∫ y, ψ y :=
+    setIntegral_eq_integral_of_forall_compl_eq_zero fun x hx ↦
+      notMem_support.1 fun h ↦ hx (hsupp (subset_closure h))
+  have hind {s : Set ℝ} (hs : MeasurableSet s) (hs' : volume s ≠ ⊤) :
+      Integrable (indicator s (1 : ℝ → ℝ)) :=
+    (integrable_indicator_iff hs).2 (integrableOn_const hs')
+  refine ⟨ψ, h1, h2, hsupp, h3, h4, ?_, ?_⟩
+  · rw [hfull, ← volume_real_Icc_of_le hbc, ← integral_indicator_one measurableSet_Icc]
+    exact integral_mono (hind measurableSet_Icc (by simp)) hψ h3
+  · rw [hfull, ← volume_real_Ioo_of_le had.le, ← integral_indicator_one measurableSet_Ioo]
+    exact integral_mono hψ (hind measurableSet_Ioo (by simp)) h4
 
 private lemma WI_summable [WienerIkehara] {g : ℝ → ℝ} (hg : HasCompactSupport g) (hx : 0 < x) :
     Summable (fun n ↦ f n * g (n / x)) := by
@@ -745,146 +723,70 @@ private lemma WI_sum_le [WienerIkehara] {g₁ g₂ : ℝ → ℝ} (hf : 0 ≤ f)
   exact Summable.tsum_le_tsum (fun n => mul_le_mul_of_nonneg_left (hg _) (hf _))
     (WI_summable hg₁ hx) (WI_summable hg₂ hx)
 
-theorem residue_nonneg [WienerIkehara] : 0 ≤ A := by
-  obtain ⟨ε, ψ, h1, h2, h3, h4, -⟩ := (interval_approx_sup zero_lt_one one_lt_two).exists
-  have l2 : 0 ≤ ψ := le_trans (indicator_nonneg (by simp)) h4
-  have l4 : 0 < ∫ (y : ℝ) in Ioi 0, ψ y := by
-    have : Ico 1 2 ⊆ support ψ := by intro x _; have := h4 x; simp_all; linarith
-    have : 1 ≤ volume (support ψ ∩ Ioi 0) := by
-      convert! volume.mono (by grind : Ico 1 2 ⊆ support ψ ∩ Ioi 0); norm_num
-    simpa [setIntegral_pos_iff_support_of_nonneg_ae (Eventually.of_forall l2)
-      (h1.continuous.integrable_of_hasCompactSupport h2).integrableOn] using
-      zero_lt_one.trans_le this
-  have := div_nonneg (ge_of_tendsto (wiener_ikehara_smooth_real h1 h2 h3)
-    ?_) l4.le
-  · field_simp at this; exact this
-  · filter_upwards [eventually_ge_atTop 0] with x hx using
-      div_nonneg (tsum_nonneg (fun _ ↦ mul_nonneg (hpos _) (l2 _))) hx
-
-private lemma WienerIkeharaInterval [WienerIkehara] (ha : 0 < a) (hb : a ≤ b) :
-    Tendsto (fun x : ℝ ↦ (∑' n, f n * (indicator (Ico a b) 1 (n / x))) / x) atTop
-      (nhds (A * (b - a))) := by
-  by_cases hab : a = b
-  · simp [hab]
-  replace hb : a < b := lt_of_le_of_ne hb hab; clear hab
-  let S (g : ℝ → ℝ) (x : ℝ) := (∑' n, f n * g (n / x)) / x
-  let Iab : ℝ → ℝ := indicator (Ico a b) 1
-  have hIab : HasCompactSupport Iab := by
-    simpa [Iab, HasCompactSupport, tsupport, hb.ne] using isCompact_Icc
-  change Tendsto (S Iab) atTop (𝓝 (A * (b - a)))
-  rw [tendsto_order]
-  constructor
-  · intro c hc
-    have auxlim : ∀ᶠ ε in 𝓝[>] 0, c < A * (b - a - ε) := by
-      apply Filter.Tendsto.eventually_const_lt hc _
-      nth_rw 2 [(by norm_num : b - a = b - a - 0)]
-      apply ContinuousWithinAt.tendsto _
-      fun_prop
-    obtain ⟨ε, ⟨ψ, h1, h2, h3, h5, h6⟩, hε⟩ := ((interval_approx_inf ha hb).and auxlim).exists
-    have hcψ : c < A * ∫ y in Ioi 0, ψ y := by nlinarith [residue_nonneg, h6, hε]
-    have hlow : ∀ᶠ x in atTop, c < S ψ x :=
-      wiener_ikehara_smooth_real h1 h2 h3 (Ioi_mem_nhds hcψ)
-    have hcomp : S ψ ≤ᶠ[atTop] S Iab := by
-      filter_upwards [eventually_gt_atTop 0] with x hx
-      exact WI_sum_le hpos h5 hx h2 hIab
-    filter_upwards [hlow, hcomp] with x hx1 hx2
-    linarith
-  · intro c hc
-    have auxlim : ∀ᶠ ε in 𝓝[>] 0, A * (b - a + ε) < c := by
-      apply Filter.Tendsto.eventually_lt_const hc _
-      nth_rw 2 [(by norm_num : b - a = b - a + 0)]
-      apply ContinuousWithinAt.tendsto _
-      fun_prop
-    obtain ⟨ε, ⟨ψ, h1, h2, h3, h5, h6⟩, hε⟩ := ((interval_approx_sup ha hb).and auxlim).exists
-    have hcψ : A * ∫ y in Ioi 0, ψ y < c := by nlinarith [residue_nonneg, h6, hε]
-    have hlow : ∀ᶠ x in atTop, S ψ x < c :=
-      wiener_ikehara_smooth_real h1 h2 h3 (Iio_mem_nhds hcψ)
-    have hcomp : S Iab ≤ᶠ[atTop] S ψ := by
-      filter_upwards [eventually_gt_atTop 0] with x hx
-      exact WI_sum_le hpos h5 hx hIab h2
-    filter_upwards [hlow, hcomp] with x hx1 hx2
-    linarith
-
 end Interval
 
 variable {n : ℕ} {a b x : ℝ}
-
-lemma mem_Ico_iff_div (hx : 0 < x) : n ∈ Finset.Ico ⌈a * x⌉₊ ⌈b * x⌉₊ ↔ n / x ∈ Ico a b := by
-  simp [Nat.ceil_le, Nat.lt_ceil, le_div_iff₀, div_lt_iff₀, hx]
 
 lemma tsum_indicator [WienerIkehara] (hx : 0 < x) :
     ∑' n, f n * (indicator (Ico a b) 1 (n / x)) = ∑ n ∈ .Ico ⌈a * x⌉₊ ⌈b * x⌉₊, f n := by
   rw [tsum_eq_sum]
   · apply Finset.sum_congr rfl
-    simp +contextual [mem_Ico_iff_div hx]
-  · simp +contextual [mem_Ico_iff_div hx]
-
-private lemma WienerIkeharaInterval_discrete [WienerIkehara] (ha : 0 < a)
-    (hb : a ≤ b) :
-    Tendsto (fun x : ℝ ↦ (∑ n ∈ .Ico ⌈a * x⌉₊ ⌈b * x⌉₊, f n) / x) atTop
-      (nhds (A * (b - a))) := by
-  apply (WienerIkeharaInterval ha hb).congr'
-  filter_upwards [eventually_gt_atTop 0] with x hx
-  rw [tsum_indicator hx]
-
-private lemma WienerIkeharaInterval_discrete' [WienerIkehara] (ha : 0 < a)
-    (hb : a ≤ b) :
-    Tendsto (fun N : ℕ ↦ (∑ n ∈ Finset.Ico ⌈a * N⌉₊ ⌈b * N⌉₊, f n) / N) atTop
-      (nhds (A * (b - a))) :=
-  WienerIkeharaInterval_discrete ha hb |>.comp tendsto_natCast_atTop_atTop
-
-private lemma tendsto_mul_ceil_div :
-    Tendsto (fun (p : ℝ × ℕ) => ⌈p.1 * p.2⌉₊ / (p.2 : ℝ)) (𝓝[>] 0 ×ˢ atTop) (𝓝 0) := by
-  apply squeeze_zero' (g := fun p : ℝ × ℕ => p.1 + 1 / p.2)
-  · apply Filter.Eventually.of_forall
-    intro x; positivity
-  · filter_upwards [eventually_mem_nhdsWithin.prod_inl atTop,
-      (eventually_gt_atTop (0 : ℕ)).prod_inr _] with p hp hn
-    simp at hp; field_simp
-    apply (Nat.ceil_lt_add_one _).le; positivity
-  · rw [nhdsWithin]
-    simpa using (Filter.tendsto_fst.mono_right inf_le_left).add
-      ((tendsto_one_div_atTop_nhds_zero_nat (𝕜 := ℝ)).comp Filter.tendsto_snd)
-
-private def S [WienerIkehara] (ε : ℝ) (N : ℕ) : ℝ := (∑ n ∈ .Ico ⌈ε * N⌉₊ N, f n) / N
-
-private lemma S_sub_S [WienerIkehara] {ε : ℝ} {N : ℕ} (hε : ε ≤ 1) :
-    S 0 N - S ε N = (∑ i ∈ .range ⌈ε * N⌉₊, f i) / N := by
-  have : ⌈ε * N⌉₊ ≤ N := by
-    rw [Nat.ceil_le]
-    exact mul_le_of_le_one_left N.cast_nonneg hε
-  have r1 : Finset.range N = .range ⌈ε * N⌉₊ ∪ .Ico ⌈ε * N⌉₊ N := by grind
-  have r2 : Disjoint (.range ⌈ε * N⌉₊) (Finset.Ico ⌈ε * N⌉₊ N) := by
-    rw [Finset.range_eq_Ico]; apply Finset.Ico_disjoint_Ico_consecutive
-  simp [S, r1, Finset.sum_union r2, add_div]
-
-private lemma tendsto_S_S_zero [WienerIkehara] :
-    TendstoUniformlyOnFilter S (S 0) (𝓝[>] 0) atTop := by
-  rw [Metric.tendstoUniformlyOnFilter_iff]; intro δ hδ
-  have l1 : ∀ᶠ (p : ℝ × ℕ) in 𝓝[>] 0 ×ˢ atTop, C * ⌈p.1 * p.2⌉₊ / p.2 < δ := by
-    have r1 := tendsto_mul_ceil_div.const_mul C
-    simp only [mul_div_assoc', mul_zero] at r1; exact r1 (Iio_mem_nhds hδ)
-  filter_upwards [l1, Eventually.prod_inl (inter_mem_nhdsWithin _ (Iic_mem_nhds zero_lt_one)) _]
-    with (ε, N) h1 h2
-  suffices ‖(∑ i ∈ .range ⌈ε * ↑N⌉₊, f i) / ↑N‖ ≤ C * ⌈ε * N⌉₊ / N by
-    simpa [← S_sub_S h2.2] using! this.trans_lt h1
-  rw [norm_div, Real.norm_natCast]; gcongr
-  exact (norm_sum_le _ _).trans (bound ⌈ε * N⌉₊)
+    simp +contextual [Nat.ceil_le, Nat.lt_ceil, le_div_iff₀, div_lt_iff₀, hx]
+  · simp +contextual [Nat.ceil_le, Nat.lt_ceil, le_div_iff₀, div_lt_iff₀, hx]
 
 /-- A version of the *Wiener-Ikehara Tauberian Theorem*: If `f` is a nonnegative arithmetic
 function whose L-series has a simple pole at `s = 1` with residue `A` and otherwise extends
 continuously to the closed half-plane `re s ≥ 1`, then `∑ n < N, f n` is asymptotic to `A*N`. -/
 theorem tendsto_sum_div [WienerIkehara] :
     Tendsto (fun N ↦ (∑ i ∈ .range N, f i) / N) atTop (𝓝 A) := by
-  convert_to Tendsto (S 0) atTop (𝓝 A); · ext N; simp [S]
-  apply tendsto_S_S_zero.tendsto_of_eventually_tendsto
-  · have L0 : Ioc 0 1 ∈ 𝓝[>] (0 : ℝ) := inter_mem_nhdsWithin _ (Iic_mem_nhds zero_lt_one)
-    apply eventually_of_mem L0
-    · intro ε hε
-      simpa using! WienerIkeharaInterval_discrete' hε.1 hε.2
-  · convert ContinuousWithinAt.tendsto _
-    · simp
-    fun_prop
+  have key {ψ : ℝ → ℝ} (h1 : ContDiff ℝ ∞ ψ) (h2 : HasCompactSupport ψ)
+      (h3 : closure (support ψ) ⊆ Ioi 0) :
+      Tendsto (fun N : ℕ ↦ (∑' n, f n * ψ (n / N)) / N) atTop (𝓝 (A * ∫ y in Ioi 0, ψ y)) :=
+    (wiener_ikehara_smooth_real h1 h2 h3).comp tendsto_natCast_atTop_atTop
+  have hI {u v : ℝ} (huv : u < v) : HasCompactSupport (indicator (Ico u v) (1 : ℝ → ℝ)) := by
+    simpa [HasCompactSupport, tsupport, huv.ne] using isCompact_Icc (a := u) (b := v)
+  have hsum {N : ℕ} (hN : (0:ℝ) < N) (u : ℝ) :
+      (∑' n, f n * (indicator (Ico u 1) 1 (n / N))) = ∑ i ∈ Finset.Ico ⌈u * N⌉₊ N, f i := by
+    rw [tsum_indicator hN]; simp
+  rw [tendsto_order]
+  refine ⟨fun c hc ↦ ?_, fun c hc ↦ ?_⟩
+  · have hg : ∀ᶠ ε in 𝓝[>] (0:ℝ), c < A * (1 - 3 * ε) :=
+      (show ContinuousWithinAt (fun ε : ℝ ↦ A * (1 - 3 * ε)) (Ioi 0) 0 by fun_prop)
+        (Ioi_mem_nhds (by simpa using hc))
+    obtain ⟨ε, hcε, hε, hε'⟩ := (hg.and (Ioc_mem_nhdsGT (by norm_num : (0:ℝ) < 1/3))).exists
+    obtain ⟨ψ, h1, h2, h3, -, h5, h6, -⟩ := exists_cutoff hε (by linarith : ε < 2 * ε)
+      (by linarith : 2 * ε ≤ 1 - ε) (by linarith : 1 - ε < 1)
+    have hcψ : c < A * ∫ y in Ioi 0, ψ y := by nlinarith [hA]
+    filter_upwards [key h1 h2 h3 (Ioi_mem_nhds hcψ), eventually_gt_atTop 0] with N hN1 hN2
+    have hN : (0:ℝ) < N := Nat.cast_pos.2 hN2
+    refine hN1.trans_le ?_
+    have := WI_sum_le hpos (h5.trans (indicator_le_indicator_of_subset
+      (Ioo_subset_Ico_self.trans (Ico_subset_Ico hε.le le_rfl)) (by simp))) hN h2 (hI zero_lt_one)
+    rwa [hsum hN 0, show ⌈(0:ℝ) * (N:ℝ)⌉₊ = 0 by simp, ← Finset.range_eq_Ico] at this
+  · have hg : ∀ᶠ ε in 𝓝[>] (0:ℝ), A + 2 * C * ε + ε < c :=
+      (show ContinuousWithinAt (fun ε : ℝ ↦ A + 2 * C * ε + ε) (Ioi 0) 0 by fun_prop)
+        (Iio_mem_nhds (by simpa using hc))
+    obtain ⟨ε, hcε, hε, hε'⟩ := (hg.and (Ioc_mem_nhdsGT (by norm_num : (0:ℝ) < 1/4))).exists
+    obtain ⟨ψ, h1, h2, h3, h4, -, -, h7⟩ := exists_cutoff hε (by linarith : ε < 2 * ε)
+      (by linarith : 2 * ε ≤ 1) (by linarith : (1:ℝ) < 1 + ε)
+    have hcψ : A * ∫ y in Ioi 0, ψ y < c - 2 * C * ε - ε := by nlinarith [hA]
+    filter_upwards [key h1 h2 h3 (Iio_mem_nhds hcψ), eventually_gt_atTop 0,
+      (tendsto_const_div_atTop_nhds_zero_nat C).eventually (gt_mem_nhds hε)] with N hN1 hN2 hN3
+    replace hN1 : (∑' n, f n * ψ (n / N)) / N < c - 2 * C * ε - ε := hN1
+    have hN : (0:ℝ) < N := Nat.cast_pos.2 hN2
+    have hle : ⌈2 * ε * (N:ℝ)⌉₊ ≤ N := by rw [Nat.ceil_le]; nlinarith
+    have e1 : (∑ i ∈ Finset.range ⌈2 * ε * (N:ℝ)⌉₊, f i) / N ≤ 2 * C * ε + C / N := by
+      have : (∑ i ∈ Finset.range ⌈2 * ε * (N:ℝ)⌉₊, f i) ≤ C * (2 * ε * N + 1) :=
+        (le_trans (Finset.sum_le_sum fun i _ ↦ Real.le_norm_self _) (bound _)).trans
+          (mul_le_mul_of_nonneg_left (Nat.ceil_lt_add_one (by positivity)).le C_nonneg)
+      have : (2 * C * ε + C / N) * N = C * (2 * ε * N + 1) := by field_simp
+      rw [div_le_iff₀ hN]; linarith
+    have e2 : (∑ i ∈ Finset.Ico ⌈2 * ε * (N:ℝ)⌉₊ N, f i) / N ≤ (∑' n, f n * ψ (n / N)) / N := by
+      rw [← hsum hN]
+      exact WI_sum_le hpos ((indicator_le_indicator_of_subset Ico_subset_Icc_self
+        (by simp)).trans h4) hN (hI (by linarith)) h2
+    rw [← Finset.sum_range_add_sum_Ico _ hle, add_div]
+    linarith
 
 end WienerIkehara
 
@@ -903,6 +805,7 @@ theorem WeakPNT : Tendsto (fun N ↦ (∑ i ∈ Finset.range N, Λ i) / N) atTop
       gcongr
       linarith
     A := 1
+    hA := zero_le_one
     G := vonMangoldt.LFunctionResidueClassAux (q := 1) 1
     hG := vonMangoldt.continuousOn_LFunctionResidueClassAux 1
     hG' s hs := by
