@@ -86,7 +86,7 @@ private lemma decay_bound (ψ : 𝓢(ℝ, ℂ)) (u : ℝ) :
 
 end SchwartzMap
 
-/- It is convenient to automatically coerce real-valued functions to complex-valued functions. -/
+/-- It is convenient to automatically coerce real-valued functions to complex-valued functions. -/
 local instance {E : Type*} : Coe (E → ℝ) (E → ℂ) := ⟨fun f n ↦ f n⟩
 
 /-- The data and hypotheses for the Wiener--Ikehara theorem.  Can be conveniently accessed inside
@@ -96,15 +96,15 @@ The `hf` hypothesis can be derived from `bound`, and `bound` and `hA` are in fac
 implementing these simplifications is non-trivial, and the hypotheses can usually be easily
 verified from existing API in practice anyway. -/
 class WienerIkehara where
-/- The function being estimated -/
+  /-- The function being estimated. -/
   f : ℕ → ℝ
-/- The constant in the Chebyshev type bound -/
+  /-- The constant in the Chebyshev-type bound. -/
   C : ℝ
   bound : ∀ n, ∑ i ∈ .range n, ‖f i‖ ≤ C * n
-/- The asymptotic constant -/
+  /-- The asymptotic constant. -/
   A : ℝ
   hA : 0 ≤ A
-/- The extension of the Dirichlet series -/
+  /-- The continuous extension of `s ↦ LSeries f s - A / (s - 1)` to `re s ≥ 1`. -/
   G : ℂ → ℂ
   hG : ContinuousOn G {s | 1 ≤ s.re}
   hG' : EqOn G (fun s ↦ LSeries f s - A / (s - 1)) {s | 1 < s.re}
