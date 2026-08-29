@@ -783,6 +783,17 @@ theorem exists_contMDiff_support_eq_eq_one_iff
   · intro x
     simp [div_eq_one_iff_eq (A x).ne', left_eq_add, ← notMem_support, g_supp]
 
+/-- The `ContDiff` counterpart of `exists_contMDiff_support_eq_eq_one_iff` for a
+finite-dimensional real normed space: given an open set `s` containing a closed set `t`, there is
+a smooth function taking values in `[0, 1]`, with support equal to `s`, and equal to `1` exactly
+on `t`. -/
+theorem exists_contDiff_support_eq_eq_one_iff {s t : Set E} (hs : IsOpen s) (ht : IsClosed t)
+    (h : t ⊆ s) :
+    ∃ f : E → ℝ, ContDiff ℝ n f ∧ range f ⊆ Icc 0 1 ∧ support f = s ∧ (∀ x, x ∈ t ↔ f x = 1) := by
+  obtain ⟨f, hf, hrange, hsupp, hone⟩ :=
+    exists_contMDiff_support_eq_eq_one_iff (I := 𝓘(ℝ, E)) hs ht h
+  exact ⟨f, contMDiff_iff_contDiff.mp hf, hrange, hsupp, hone⟩
+
 /-- Given two disjoint closed sets `s, t` in a Hausdorff σ-compact finite-dimensional manifold,
 there exists an infinitely smooth function that is equal to `0` exactly on `s` and to `1`
 exactly on `t`. See also `exists_contMDiffMap_zero_one_of_isClosed` for a
