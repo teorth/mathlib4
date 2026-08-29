@@ -30,9 +30,9 @@ continuously to `Re s ≥ 1` after subtracting `A / (s - 1)`.  Then
 ## Main results
 
 * `WienerIkehara.tendsto_sum_div`: the Wiener-Ikehara Tauberian theorem.
-* `WeakPNT_AP`: the weak prime number theorem in arithmetic progressions, `∑ n < N, n ≡ a [q], Λ n
-  = N / q.totient + o(N)` for `a` coprime to `q`.
-* `WeakPNT`: the prime number theorem `∑ n < N, Λ n = N + o(N)`, the `q = 1` case of `WeakPNT_AP`.
+
+The weak prime number theorem (`WeakPNT`) and its version in arithmetic progressions
+(`WeakPNT_AP`), which are consequences, are in `Mathlib.NumberTheory.LSeries.WeakPNT`.
 
 ## Proof outline
 
@@ -745,55 +745,3 @@ theorem tendsto_sum_div : Tendsto (fun N ↦ (∑ i ∈ .range N, f i) / N) atTo
     exacts [hpos _, WI_summable (hI (by linarith)) hN, WI_summable h2 hN]
 
 end WienerIkehara
-
-/-- The Wiener–Ikehara theorem applied to the von Mangoldt function restricted to the residue
-class `a` mod `q`: the average of `vonMangoldt.residueClass a` over `[0, N)` tends to
-`(q.totient)⁻¹`. -/
-private theorem tendsto_residueClass_sum_div {q : ℕ} [NeZero q] {a : ZMod q} (ha : IsUnit a) :
-    Tendsto (fun N ↦ (∑ i ∈ Finset.range N, vonMangoldt.residueClass a i) / N) atTop
-      (𝓝 (q.totient : ℝ)⁻¹) :=
-  @WienerIkehara.tendsto_sum_div
-    { f := vonMangoldt.residueClass a
-      C := Real.log 4 + 4
-      bound N := by
-        calc ∑ i ∈ Finset.range N, ‖vonMangoldt.residueClass a i‖
-            ≤ ∑ i ∈ Finset.range N, Λ i := by
-              refine Finset.sum_le_sum fun i _ ↦ ?_
-              rw [Real.norm_of_nonneg (vonMangoldt.residueClass_nonneg a i)]
-              exact vonMangoldt.residueClass_le a i
-          _ ≤ (Real.log 4 + 4) * N := by
-              rcases eq_or_ne N 0 with rfl | h
-              · simp
-              grw [Nat.range_eq_Icc_zero_sub_one _ h, (by simp : N - 1 = ⌊(N : ℝ) - 1⌋₊),
-                ← Chebyshev.psi_eq_sum_Icc, Chebyshev.psi_le_const_mul_self <|
-                sub_nonneg_of_le <| Nat.one_le_cast_iff_ne_zero.mpr h]
-              gcongr
-              linarith
-      A := (q.totient : ℝ)⁻¹
-      hA := by positivity
-      G := vonMangoldt.LFunctionResidueClassAux a
-      hG := vonMangoldt.continuousOn_LFunctionResidueClassAux a
-      hG' s hs := by
-        rw [vonMangoldt.eqOn_LFunctionResidueClassAux ha hs]; push_cast; ring
-      hf σ hσ := LSeriesSummable_of_abscissaOfAbsConv_lt_re <|
-        (vonMangoldt.abscissaOfAbsConv_residueClass_le_one a).trans_lt <| by
-          rw [Complex.ofReal_re]; exact_mod_cast hσ
-      hpos := vonMangoldt.residueClass_nonneg a }
-
-/-- **The weak prime number theorem in arithmetic progressions.**  For `a` coprime to `q`, the
-von Mangoldt function summed over `n < N` with `n ≡ a mod q` grows like `N / q.totient`. -/
-theorem WeakPNT_AP {q a : ℕ} [NeZero q] (ha : a.Coprime q) (ha' : a < q) :
-    Tendsto (fun N ↦ (∑ n ∈ Finset.range N, if n % q = a then Λ n else 0) / N) atTop
-      (𝓝 (1 / (q.totient : ℝ))) := by
-  rw [one_div]
-  refine Tendsto.congr (fun N ↦ ?_)
-    (tendsto_residueClass_sum_div ((ZMod.isUnit_iff_coprime a q).mpr ha))
-  congr 1
-  refine Finset.sum_congr rfl fun n _ ↦ ?_
-  simp only [vonMangoldt.residueClass, Set.indicator_apply, Set.mem_ofPred_eq,
-    ZMod.natCast_eq_natCast_iff', Nat.mod_eq_of_lt ha']
-
-/-- **The weak prime number theorem** `∑ n < N, Λ n = N + o(N)`, as the `q = 1` case of the
-weak prime number theorem in arithmetic progressions. -/
-theorem WeakPNT : Tendsto (fun N ↦ (∑ i ∈ Finset.range N, Λ i) / N) atTop (𝓝 1) := by
-  simpa [Nat.mod_one, Nat.totient_one] using WeakPNT_AP (q := 1) (a := 0) (by simp) one_pos
