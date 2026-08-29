@@ -721,7 +721,7 @@ private lemma WI_summable (hg : HasCompactSupport g) (hx : 0 < x) :
 function whose L-series has a simple pole at `s = 1` with residue `A` and otherwise extends
 continuously to the closed half-plane `re s ≥ 1`, then `∑ n < N, f n` is asymptotic to `A*N`. -/
 theorem tendsto_sum_div : Tendsto (fun N ↦ (∑ i ∈ .range N, f i) / N) atTop (𝓝 A) := by
-  have hI {u v : ℝ} (huv : u < v) : HasCompactSupport (indicator (Ico u v) (1 : ℝ → ℝ)) := by
+  have hI {u v} (huv : u < v) : HasCompactSupport (indicator (Ico u v) (1 : ℝ → ℝ)) := by
     simpa [HasCompactSupport, tsupport, huv.ne] using isCompact_Icc (a := u) (b := v)
   have hsum {N : ℕ} (hN : (0 : ℝ) < N) (u : ℝ) :
       ∑' n, f n * (indicator (Ico u 1) 1 (n / N)) = ∑ i ∈ .Ico ⌈u * N⌉₊ N, f i := by
@@ -730,7 +730,7 @@ theorem tendsto_sum_div : Tendsto (fun N ↦ (∑ i ∈ .range N, f i) / N) atTo
       simp +contextual [Nat.ceil_le, le_div_iff₀, div_lt_iff₀, hN]
     · simp +contextual [Nat.ceil_le, le_div_iff₀, div_lt_iff₀, hN]
   rw [tendsto_order]
-  refine ⟨fun c hc ↦ ?_, fun c hc ↦ ?_⟩
+  refine ⟨fun c _ ↦ ?_, fun c _ ↦ ?_⟩
   · have hg : ∀ᶠ ε in 𝓝[>] (0:ℝ), c < _ := (by fun_prop : ContinuousWithinAt
         (fun ε ↦ A * (1 - 3 * ε)) (Ioi 0) 0) (Ioi_mem_nhds (by grind))
     obtain ⟨ε, hcε, hε, hε'⟩ := (hg.and (Ioc_mem_nhdsGT (by norm_num : (0:ℝ) < 1/3))).exists
@@ -752,19 +752,16 @@ theorem tendsto_sum_div : Tendsto (fun N ↦ (∑ i ∈ .range N, f i) / N) atTo
     have hcψ : A * ∫ y in Ioi 0, ψ y < c - 2 * C * ε - ε := by nlinarith [hA]
     filter_upwards [(wiener_ikehara_smooth_real h1 h2 h3).comp tendsto_natCast_atTop_atTop
       (Iio_mem_nhds hcψ), eventually_gt_atTop 0,
-      (tendsto_const_div_atTop_nhds_zero_nat C).eventually (gt_mem_nhds hε)] with N hN1 hN2 hN3
-    change (∑' n, f n * ψ (n / N)) / N < c - 2 * C * ε - ε at hN1
+      (tendsto_const_div_atTop_nhds_zero_nat C).eventually (gt_mem_nhds hε)] with N hN1 _ hN3
     have hN : (0 : ℝ) < N := by norm_cast
-    have hle : ⌈2 * ε * (N:ℝ)⌉₊ ≤ N := by rw [Nat.ceil_le]; nlinarith
-    have : (∑ i ∈ .Ico ⌈2 * ε * (N:ℝ)⌉₊ N, f i) / N ≤ (∑' n, f n * ψ (n / N)) / N := by
-      grw [← hsum hN, ((indicator_le_indicator_of_subset Ico_subset_Icc_self
-        (by simp)).trans h4) _]
-      exacts [hpos _, WI_summable (hI (by linarith)) hN, WI_summable h2 hN]
-    grw [← Finset.sum_range_add_sum_Ico _ hle, add_div, this, hN1, le_norm_self (f _),
-      bound, Nat.ceil_lt_add_one, mul_add, add_div, mul_one, hN3]
+    grw [← Finset.sum_range_add_sum_Ico _ (by rw [Nat.ceil_le]; nlinarith : ⌈2 * ε * (N:ℝ)⌉₊ ≤ N),
+      add_div, ← hsum hN, ((indicator_le_indicator_of_subset Ico_subset_Icc_self
+      (by simp)).trans h4) _, (by exact hN1 : (∑' n, f n * ψ (n / N)) / N < _),
+      le_norm_self (f _), bound, Nat.ceil_lt_add_one, mul_add, add_div, mul_one, hN3]
     · field_simp; grind
     · exact C_nonneg
     · positivity
+    exacts [hpos _, WI_summable (hI (by linarith)) hN, WI_summable h2 hN]
 
 end WienerIkehara
 
