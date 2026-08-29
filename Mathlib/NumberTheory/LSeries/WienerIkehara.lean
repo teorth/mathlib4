@@ -584,8 +584,7 @@ lemma tendsto_sum_div_smooth (hsmooth : ContDiff ℝ ∞ ψ) (hsupp : HasCompact
     simp only [hg, HasCompactSupport.toSchwartzMap_toFun, h]
     field_simp
     rw [Real.exp_log hy]
-  have l2 : ∀ᶠ x in atTop, S 1 (𝓕 g) x =
-      ∑' n, f n * ψ (n / x) / x - A * ∫ y in Ioi x⁻¹, ψ y := by
+  have l2 : ∀ᶠ x in atTop, S 1 (𝓕 g) x = ∑' n, f n * ψ (n / x) / x - A * ∫ y in Ioi x⁻¹, ψ y := by
     filter_upwards [eventually_gt_atTop 0] with x hx
     unfold S S₁
     congr
@@ -609,20 +608,18 @@ lemma tendsto_sum_div_smooth (hsmooth : ContDiff ℝ ∞ ψ) (hsupp : HasCompact
         IntegrableOn _ (Ici (-log x)) _)
   have : Tendsto (fun x ↦ (A * ∫ y in Ioi x⁻¹, ψ y) - A * ∫ y in Ioi 0, ψ y) atTop (𝓝 0) := by
     obtain ⟨ε, _, _⟩ := Metric.eventually_nhds_iff.mp <| comp_exp_support0 hplus
-    have h1 : Integrable ψ := hsmooth.continuous.integrable_of_hasCompactSupport hsupp
+    have : Integrable ψ := hsmooth.continuous.integrable_of_hasCompactSupport hsupp
     apply tendsto_nhds_of_eventually_eq; filter_upwards [eventually_gt_atTop ε⁻¹] with x _
     simp_rw [← MeasureTheory.integral_indicator measurableSet_Ioi, ← mul_sub,
-      ← integral_sub (h1.indicator measurableSet_Ioi) (h1.indicator measurableSet_Ioi)]
-    simp only [mul_eq_zero, ofReal_eq_zero]
+      ← integral_sub (this.indicator measurableSet_Ioi) (this.indicator measurableSet_Ioi),
+      mul_eq_zero, ofReal_eq_zero]
     refine Or.inr (integral_eq_zero_of_ae (Eventually.of_forall fun t ↦ ?_))
     have : 0 < ε⁻¹ := by positivity
     have : 0 < x := by linarith
     have : 0 < x⁻¹ := by positivity
-    rw [(by grind : Ioi 0 = Ioc 0 x⁻¹ ∪ Ioi x⁻¹), indicator_union_of_disjoint (by simp) ψ,
-      Pi.zero_apply]
-    by_cases ht : t ∈ Ioc 0 x⁻¹
-    · simp_all; grind [inv_lt_comm₀]
-    simp [ht]
+    rw [(by grind : Ioi 0 = Ioc 0 x⁻¹ ∪ Ioi x⁻¹), indicator_union_of_disjoint (by simp) ψ]
+    by_cases t ∈ Ioc 0 x⁻¹ <;> simp_all
+    grind [inv_lt_comm₀]
   simpa [tendsto_sub_nhds_zero_iff, tsum_div_const] using ((limiting_cor_schwartz g).congr' l2).add
     this
 
@@ -701,7 +698,7 @@ theorem tendsto_sum_range_div : Tendsto (fun N ↦ (∑ i ∈ .range N, f i) / N
   refine ⟨fun c _ ↦ ?_, fun c _ ↦ ?_⟩
   · have hg : ∀ᶠ ε in 𝓝[>] (0 : ℝ), c < _ := (by fun_prop : ContinuousWithinAt
         (fun ε ↦ A * (1 - 3 * ε)) (Ioi 0) 0) (Ioi_mem_nhds (by grind))
-    obtain ⟨ε, hcε, hε, hε'⟩ := (hg.and (Ioc_mem_nhdsGT (by norm_num : (0:ℝ) < 1/3))).exists
+    obtain ⟨ε, hcε, hε, hε'⟩ := (hg.and (Ioc_mem_nhdsGT (by norm_num : (0 : ℝ) < 1/3))).exists
     obtain ⟨ψ, h1, h2, h3, -, h5, _, -⟩ := exists_cutoff hε (by linarith : ε < 2 * ε)
       (by linarith) (by linarith : 1 - ε < 1)
     filter_upwards [(tendsto_sum_div_smooth_real h1 h2 h3).comp tendsto_natCast_atTop_atTop
@@ -714,15 +711,15 @@ theorem tendsto_sum_range_div : Tendsto (fun N ↦ (∑ i ∈ .range N, f i) / N
     exacts [hpos _, WI_summable h2 this, WI_summable (hI zero_lt_one) this]
   · have hg : ∀ᶠ ε in 𝓝[>] (0 : ℝ), _ < c := (by fun_prop : ContinuousWithinAt
         (fun ε ↦ A + 2 * C * ε + ε) (Ioi 0) 0) (Iio_mem_nhds (by grind))
-    obtain ⟨ε, hcε, hε, hε'⟩ := (hg.and (Ioc_mem_nhdsGT (by norm_num : (0:ℝ) < 1 / 4))).exists
-    obtain ⟨ψ, h1, h2, h3, h4, -, -, h7⟩ := exists_cutoff hε (by linarith : ε < 2 * ε)
+    obtain ⟨ε, _, hε, _⟩ := (hg.and (Ioc_mem_nhdsGT (by norm_num : (0 : ℝ) < 1 / 4))).exists
+    obtain ⟨ψ, h1, h2, h3, h4, -, -, _⟩ := exists_cutoff hε (by linarith : ε < 2 * ε)
       (by linarith) (by linarith : 1 < 1 + ε)
     have hcψ : A * ∫ y in Ioi 0, ψ y < c - 2 * C * ε - ε := by nlinarith [hA]
     filter_upwards [(tendsto_sum_div_smooth_real h1 h2 h3).comp tendsto_natCast_atTop_atTop
       (Iio_mem_nhds hcψ), eventually_gt_atTop 0,
       (tendsto_const_div_atTop_nhds_zero_nat C).eventually (gt_mem_nhds hε)] with N hN1 _ hN3
     have hN : (0 : ℝ) < N := by norm_cast
-    grw [← Finset.sum_range_add_sum_Ico _ (by rw [Nat.ceil_le]; nlinarith : ⌈2 * ε * (N:ℝ)⌉₊ ≤ N),
+    grw [← Finset.sum_range_add_sum_Ico _ (by rw [Nat.ceil_le]; nlinarith : ⌈2 * ε * N⌉₊ ≤ N),
       add_div, ← hsum hN, ((indicator_le_indicator_of_subset Ico_subset_Icc_self
       (by simp)).trans h4) _, (by exact hN1 : (∑' n, f n * ψ (n / N)) / N < _),
       le_norm_self (f _), bound, Nat.ceil_lt_add_one, mul_add, add_div, mul_one, hN3]
