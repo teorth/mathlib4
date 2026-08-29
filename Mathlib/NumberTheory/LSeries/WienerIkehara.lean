@@ -639,14 +639,13 @@ variable {a b c d : ℝ}
 
 /-- A smooth Urysohn lemma on the real line: for `a < b` and `c < d` there is a smooth compactly
 supported function squeezed between the indicators of `Icc b c` and `Ioo a d`, whose support is
-exactly `Ioo a d`.  This specializes `exists_contMDiff_support_eq_eq_one_iff`. -/
+exactly `Ioo a d`.  This specializes `exists_contDiff_support_eq_eq_one_iff`. -/
 lemma exists_contDiff_one_on_Icc_support_eq_Ioo (hab : a < b) (hcd : c < d) :
     ∃ Ψ : ℝ → ℝ, ContDiff ℝ ∞ Ψ ∧ HasCompactSupport Ψ ∧
       indicator (Icc b c) 1 ≤ Ψ ∧ Ψ ≤ indicator (Ioo a d) 1 ∧ support Ψ = Ioo a d := by
   obtain ⟨Ψ, hsmooth, hrange, hsupp, hone⟩ :=
-    exists_contMDiff_support_eq_eq_one_iff (I := modelWithCornersSelf ℝ ℝ)
-      isOpen_Ioo isClosed_Icc (Icc_subset_Ioo hab hcd)
-  exact ⟨Ψ, hsmooth.contDiff, .of_support_subset_isCompact isCompact_Icc
+    exists_contDiff_support_eq_eq_one_iff isOpen_Ioo isClosed_Icc (Icc_subset_Ioo hab hcd)
+  exact ⟨Ψ, hsmooth, .of_support_subset_isCompact isCompact_Icc
     (hsupp ▸ Ioo_subset_Icc_self), indicator_le' (fun x hx ↦ ((hone x).mp hx).ge)
     fun x _ ↦ (hrange (mem_range_self x)).1, fun x ↦ le_indicator_apply
     (fun _ ↦ (hrange (mem_range_self x)).2) (by grind [mem_support]), hsupp⟩
