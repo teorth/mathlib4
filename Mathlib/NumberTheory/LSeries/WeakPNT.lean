@@ -51,7 +51,7 @@ private theorem tendsto_residueClass_sum_div {q : ℕ} [NeZero q] {a : ZMod q} (
       bound N := calc
         _ ≤ ∑ i ∈ range N, Λ i := by
           refine sum_le_sum fun i _ ↦ ?_
-          rw [norm_of_nonneg (residueClass_nonneg a i)]
+          rw [abs_of_nonneg (residueClass_nonneg a i)]
           exact residueClass_le a i
         _ ≤ (log 4 + 4) * N := by
           rcases eq_or_ne N 0 with rfl | h
@@ -221,11 +221,11 @@ theorem tendsto_M_div_atTop : Tendsto (fun x ↦ (M x : ℝ) / x) atTop (𝓝 0)
       { f n := (1 : ℝ) + μ n
         C := 2
         bound n := by
-          calc ∑ i ∈ range n, ‖(1 : ℝ) + μ i‖
+          calc ∑ i ∈ range n, |(1 : ℝ) + μ i|
               ≤ ∑ _i ∈ range n, (2 : ℝ) := sum_le_sum fun i _ ↦ by
                 have h1 : |(μ i : ℝ)| ≤ 1 := mod_cast ArithmeticFunction.abs_moebius_le_one
                 rw [abs_le] at h1
-                rw [Real.norm_eq_abs, abs_le]
+                rw [abs_le]
                 constructor <;> linarith [h1.1, h1.2]
             _ = 2 * n := by rw [sum_const, card_range, nsmul_eq_mul]; ring
         A := 1

@@ -95,7 +95,7 @@ class WienerIkehara where
   f : ℕ → ℝ
   /-- The constant in the Chebyshev-type bound. -/
   C : ℝ
-  bound : ∀ n, ∑ i ∈ .range n, ‖f i‖ ≤ C * n
+  bound : ∀ n, ∑ i ∈ .range n, |f i| ≤ C * n
   /-- The asymptotic constant. -/
   A : ℝ
   hA : 0 ≤ A
@@ -110,7 +110,7 @@ namespace WienerIkehara
 
 private abbrev c₀ := π⁻¹ * 2⁻¹
 
-private lemma C_nonneg [WienerIkehara] : 0 ≤ C := (norm_nonneg (f 0)).trans (by simpa using bound 1)
+private lemma C_nonneg [WienerIkehara] : 0 ≤ C := (abs_nonneg (f 0)).trans (by simpa using bound 1)
 section FourierIdentities
 
 variable [WienerIkehara] (σ : ℝ) (φ : 𝓢(ℝ, ℂ)) (x : ℝ)
@@ -722,7 +722,7 @@ theorem tendsto_sum_range_div : Tendsto (fun N ↦ (∑ i ∈ .range N, f i) / N
     grw [← Finset.sum_range_add_sum_Ico _ (by rw [Nat.ceil_le]; nlinarith : ⌈2 * ε * N⌉₊ ≤ N),
       add_div, ← hsum hN, ((indicator_le_indicator_of_subset Ico_subset_Icc_self
       (by simp)).trans h4) _, (by exact hN1 : (∑' n, f n * ψ (n / N)) / N < _),
-      le_norm_self (f _), bound, Nat.ceil_lt_add_one, mul_add, add_div, mul_one, hN3]
+      le_abs_self (f _), bound, Nat.ceil_lt_add_one, mul_add, add_div, mul_one, hN3]
     · field_simp; grind
     · exact C_nonneg
     · positivity
