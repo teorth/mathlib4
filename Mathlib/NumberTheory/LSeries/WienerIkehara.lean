@@ -6,20 +6,16 @@ Authors: Jose Francisco Antonio Balderas, Vincent Beffara, Alex Kontorovich, Ter
 -/
 module
 
-public import Mathlib.Analysis.Convolution
-public import Mathlib.Analysis.Fourier.RiemannLebesgueLemma
-public import Mathlib.Analysis.Normed.Group.Tannery
-public import Mathlib.Analysis.SumIntegralComparisons
 public import Mathlib.NumberTheory.Chebyshev
 public import Mathlib.NumberTheory.LSeries.PrimesInAP
-public import Mathlib.Geometry.Manifold.PartitionOfUnity
 public import Mathlib.MeasureTheory.Group.Circle
-public import Mathlib.Analysis.Distribution.SchwartzSpace.CompactSupport
-public import Mathlib.NumberTheory.MulChar.Lemmas
-public import Mathlib.Topology.EMetricSpace.BoundedVariation
 
+import Mathlib.Geometry.Manifold.PartitionOfUnity
+import Mathlib.Analysis.Fourier.RiemannLebesgueLemma
+import Mathlib.Analysis.SumIntegralComparisons
 import Mathlib.Algebra.Order.Chebyshev
-import Mathlib.Tactic.GRewrite.Elab
+import Mathlib.Analysis.Normed.Group.Tannery
+import Mathlib.Analysis.Distribution.SchwartzSpace.CompactSupport
 /-!
 # The Wiener-Ikehara Tauberian theorem
 
@@ -31,8 +27,8 @@ continuously to `Re s ≥ 1` after subtracting `A / (s - 1)`.  Then
 
 * `WienerIkehara.tendsto_sum_div`: the Wiener-Ikehara Tauberian theorem.
 
-The weak prime number theorem (`WeakPNT`) and its version in arithmetic progressions
-(`WeakPNT_AP`), which are consequences, are in `Mathlib.NumberTheory.LSeries.WeakPNT`.
+The weak prime number theorem and its version in arithmetic progressions, and the
+`ψ`/`θ` forms of the prime number theorem, are in `Mathlib.NumberTheory.LSeries.WeakPNT`.
 
 ## Proof outline
 
@@ -712,7 +708,7 @@ theorem tendsto_sum_div : Tendsto (fun N ↦ (∑ i ∈ .range N, f i) / N) atTo
     · simp +contextual [Nat.ceil_le, le_div_iff₀, div_lt_iff₀, hN]
   rw [tendsto_order]
   refine ⟨fun c _ ↦ ?_, fun c _ ↦ ?_⟩
-  · have hg : ∀ᶠ ε in 𝓝[>] (0:ℝ), c < _ := (by fun_prop : ContinuousWithinAt
+  · have hg : ∀ᶠ ε in 𝓝[>] (0 : ℝ), c < _ := (by fun_prop : ContinuousWithinAt
         (fun ε ↦ A * (1 - 3 * ε)) (Ioi 0) 0) (Ioi_mem_nhds (by grind))
     obtain ⟨ε, hcε, hε, hε'⟩ := (hg.and (Ioc_mem_nhdsGT (by norm_num : (0:ℝ) < 1/3))).exists
     obtain ⟨ψ, h1, h2, h3, -, h5, _, -⟩ := exists_cutoff hε (by linarith : ε < 2 * ε)
