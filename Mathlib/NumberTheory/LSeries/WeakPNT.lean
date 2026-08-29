@@ -7,6 +7,8 @@ Authors: Jose Francisco Antonio Balderas, Vincent Beffara, Alex Kontorovich, Ter
 module
 
 public import Mathlib.NumberTheory.LSeries.WienerIkehara
+public import Mathlib.NumberTheory.LSeries.Dirichlet
+public import Mathlib.NumberTheory.Harmonic.ZetaAsymp
 
 /-!
 # The weak prime number theorem
@@ -28,6 +30,8 @@ Wiener–Ikehara Tauberian theorem `WienerIkehara.tendsto_sum_div`.
   `x` has a prime in `(x, (1 + ε) * x]`.
 * `Chebyshev.isEquivalent_log_primorial_id`: `log (primorial n) ~ n`.
 * `Chebyshev.isEquivalent_log_lcmUpto_id`: `log (Nat.lcmUpto n) ~ n`.
+* `Mertens.tendsto_M_div_atTop`: **Mertens' theorem** `∑ n ≤ x, μ n = o(x)`, obtained by applying
+  Wiener–Ikehara to the nonnegative function `n ↦ 1 + μ n` (with `L`-series `ζ s + 1/ζ s`).
 -/
 
 public section
@@ -172,3 +176,131 @@ theorem isEquivalent_log_lcmUpto_id : (fun n ↦ log (lcmUpto n)) ~[atTop] (↑�
   exact tendsto_log_lcmUpto_div_atTop.congr (by simp)
 
 end Chebyshev
+
+/-- A variant of `inv_riemannZeta_eq_sub_mul` valid on all of `s ≠ 1` (rather than only near `1`):
+the reciprocal of the Riemann zeta function in terms of the entire function `riemannZeta₁`, where
+`riemannZeta s = (s - 1)⁻¹ * riemannZeta₁ s`.  A candidate for upstreaming to
+`Mathlib.NumberTheory.Harmonic.ZetaAsymp`. -/
+theorem inv_riemannZeta_eq_sub_mul_of_ne_one {s : ℂ} (hs : s ≠ 1) :
+    (riemannZeta s)⁻¹ = (s - 1) * (riemannZeta₁ s)⁻¹ := by
+  rw [riemannZeta_eq_inv_sub_mul hs, mul_inv, inv_inv]
+
+namespace Mertens
+
+open scoped ArithmeticFunction.Moebius
+
+/-- The **Mertens function** `M x = ∑ n ≤ x, μ n`, the partial sums of the Möbius function. -/
+noncomputable def M (x : ℝ) : ℤ := ∑ n ∈ Icc 1 ⌊x⌋₊, μ n
+
+/-- The trivial bound `|M x| ≤ x` for `x ≥ 0`, since each `μ n ∈ {-1, 0, 1}`. -/
+theorem abs_M_le {x : ℝ} (hx : 0 ≤ x) : |(M x : ℝ)| ≤ x := by
+  have h : |M x| ≤ (⌊x⌋₊ : ℤ) := by
+    refine (Finset.abs_sum_le_sum_abs _ _).trans ?_
+    calc ∑ n ∈ Icc 1 ⌊x⌋₊, |μ n|
+        ≤ ∑ _n ∈ Icc 1 ⌊x⌋₊, (1 : ℤ) :=
+          Finset.sum_le_sum fun n _ ↦ ArithmeticFunction.abs_moebius_le_one
+      _ = ⌊x⌋₊ := by simp
+  have he : |(M x : ℝ)| = ((|M x| : ℤ) : ℝ) := by rw [Int.cast_abs]
+  rw [he]
+  calc ((|M x| : ℤ) : ℝ) ≤ ((⌊x⌋₊ : ℤ) : ℝ) := by exact_mod_cast h
+    _ ≤ x := by exact_mod_cast Nat.floor_le hx
+
+private lemma sum_Icc_zero_moebius (n : ℕ) :
+    ∑ k ∈ Icc 0 n, (μ k : ℝ) = ∑ k ∈ Icc 1 n, (μ k : ℝ) := by
+  rw [← Finset.sum_erase (Icc 0 n) (a := 0) (by simp)]
+  refine Finset.sum_congr ?_ fun _ _ ↦ rfl
+  ext k
+  simp only [Finset.mem_erase, Finset.mem_Icc]
+  omega
+
+/-- **Mertens' theorem** (`o` form): `M x / x → 0`, i.e. `∑ n ≤ x, μ n = o(x)`.
+
+Proved by applying the Wiener–Ikehara theorem to the nonnegative function `f n = 1 + μ n`, whose
+`L`-series is `ζ s + 1/ζ s` (with residue `1` at `s = 1`), and subtracting the leading term
+`∑ n ≤ x, 1 ~ x`. -/
+theorem tendsto_M_div_atTop : Tendsto (fun x ↦ (M x : ℝ) / x) atTop (𝓝 0) := by
+  have hζ1ne : ∀ s : ℂ, 1 ≤ s.re → riemannZeta₁ s ≠ 0 := by
+    intro s hs
+    rcases eq_or_ne s 1 with rfl | hs1
+    · rw [riemannZeta₁_one]; exact one_ne_zero
+    · have hval : riemannZeta₁ s = (s - 1) * riemannZeta s := by
+        rw [riemannZeta_eq_inv_sub_mul hs1, ← mul_assoc, mul_inv_cancel₀ (sub_ne_zero.mpr hs1),
+          one_mul]
+      rw [hval]
+      exact mul_ne_zero (sub_ne_zero.mpr hs1) (riemannZeta_ne_zero_of_one_le_re hs)
+  -- Wiener–Ikehara applied to `f n = 1 + μ n`, whose `L`-series is `ζ s + 1/ζ s`.
+  have hWI : Tendsto (fun x : ℝ ↦ (∑ n ∈ Icc 0 ⌊x⌋₊, ((1 : ℝ) + μ n)) / x) atTop (𝓝 1) :=
+    @WienerIkehara.tendsto_sum_div
+      { f := fun n ↦ (1 : ℝ) + μ n
+        C := 2
+        bound := fun n ↦ by
+          calc ∑ i ∈ Finset.range n, ‖(1 : ℝ) + μ i‖
+              ≤ ∑ _i ∈ Finset.range n, (2 : ℝ) := Finset.sum_le_sum fun i _ ↦ by
+                have h1 : |(μ i : ℝ)| ≤ 1 := by exact_mod_cast ArithmeticFunction.abs_moebius_le_one
+                rw [abs_le] at h1
+                rw [Real.norm_eq_abs, abs_le]
+                constructor <;> linarith [h1.1, h1.2]
+            _ = 2 * n := by rw [Finset.sum_const, Finset.card_range, nsmul_eq_mul]; ring
+        A := 1
+        hA := zero_le_one
+        G := fun s ↦ riemannZeta₀ s + (s - 1) * (riemannZeta₁ s)⁻¹
+        hG := by
+          apply ContinuousOn.add differentiable_riemannZeta₀.continuous.continuousOn
+          exact (Continuous.continuousOn (by fun_prop)).mul
+            (differentiable_riemannZeta₁.continuous.continuousOn.inv₀ fun s hs ↦ hζ1ne s hs)
+        hG' := fun s hs => by
+          have hs1 : s ≠ 1 := by rintro rfl; simp at hs
+          have hmu : LSeries (fun n ↦ (μ n : ℂ)) s = (riemannZeta s)⁻¹ := by
+            have hh := LSeries_one_mul_Lseries_moebius hs
+            rw [LSeries_one_eq_riemannZeta hs] at hh
+            exact eq_inv_of_mul_eq_one_left (by rw [mul_comm]; exact hh)
+          have hsum1 : LSeriesSummable (1 : ℕ → ℂ) s :=
+            LSeriesSummable_of_bounded_of_one_lt_re (m := 1) (fun n _ ↦ by simp) hs
+          have hsummu : LSeriesSummable (fun n ↦ (μ n : ℂ)) s :=
+            ArithmeticFunction.LSeriesSummable_moebius_iff.mpr hs
+          have hLS : LSeries (fun n ↦ Complex.ofReal ((1 : ℝ) + μ n)) s
+              = riemannZeta s + (riemannZeta s)⁻¹ := by
+            have e : (fun n ↦ Complex.ofReal ((1 : ℝ) + μ n))
+                = (1 : ℕ → ℂ) + fun n ↦ (μ n : ℂ) := by
+              funext n; simp only [Pi.add_apply, Pi.one_apply]; push_cast; ring
+            rw [e, LSeries_add hsum1 hsummu, LSeries_one_eq_riemannZeta hs, hmu]
+          change riemannZeta₀ s + (s - 1) * (riemannZeta₁ s)⁻¹
+              = LSeries (fun n ↦ Complex.ofReal ((1 : ℝ) + μ n)) s - 1 / (s - 1)
+          rw [hLS]
+          have hζ0 : riemannZeta₀ s = riemannZeta s - (s - 1)⁻¹ := by
+            rw [riemannZeta_eq_inv_sub_add hs1]; ring
+          rw [hζ0, ← inv_riemannZeta_eq_sub_mul_of_ne_one hs1, one_div]
+          ring
+        hf := fun σ hσ => by
+          have hσ' : 1 < (σ : ℂ).re := by simpa using hσ
+          change LSeriesSummable (fun n ↦ Complex.ofReal ((1 : ℝ) + μ n)) (σ : ℂ)
+          rw [show (fun n ↦ Complex.ofReal ((1 : ℝ) + μ n))
+              = (1 : ℕ → ℂ) + fun n ↦ (μ n : ℂ) from
+              funext fun n ↦ by simp only [Pi.add_apply, Pi.one_apply]; push_cast; ring]
+          exact (LSeriesSummable_of_bounded_of_one_lt_re (m := 1) (fun n _ ↦ by simp) hσ').add
+            (ArithmeticFunction.LSeriesSummable_moebius_iff.mpr hσ')
+        hpos := by
+          intro n
+          have h : (-1 : ℤ) ≤ μ n := (abs_le.mp ArithmeticFunction.abs_moebius_le_one).1
+          have hr : (-1 : ℝ) ≤ (μ n : ℝ) := by exact_mod_cast h
+          change (0 : ℝ) ≤ 1 + (μ n : ℝ)
+          linarith }
+  -- `∑ n ≤ x, 1 = ⌊x⌋ + 1 ~ x`, so subtracting leaves `M x / x → 0`.
+  have hfl : Tendsto (fun x : ℝ ↦ ((⌊x⌋₊ : ℝ) + 1) / x) atTop (𝓝 1) := by
+    have h1 := (tendsto_nat_floor_div_atTop (R := ℝ)).add tendsto_inv_atTop_zero
+    simp only [add_zero] at h1
+    refine h1.congr' ?_
+    filter_upwards [eventually_gt_atTop (0 : ℝ)] with x hx
+    rw [add_div, one_div]
+  have hsub := hWI.sub hfl
+  rw [sub_self] at hsub
+  refine hsub.congr' ?_
+  filter_upwards [eventually_gt_atTop (0 : ℝ)] with x hx
+  rw [← sub_div]
+  congr 1
+  rw [Finset.sum_add_distrib, sum_Icc_zero_moebius, Finset.sum_const, Nat.card_Icc, Nat.sub_zero,
+    nsmul_eq_mul, mul_one]
+  push_cast [M]
+  ring
+
+end Mertens
