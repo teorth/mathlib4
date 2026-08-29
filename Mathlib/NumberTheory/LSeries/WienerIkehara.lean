@@ -576,40 +576,11 @@ private theorem comp_exp_support (hsupp : HasCompactSupport ψ)
     cocompact_eq_atBot_atTop] at hsupp ⊢
   exact ⟨tendsto_exp_atBot <| comp_exp_support0 hplus, tendsto_exp_atTop hsupp.2⟩
 
-private lemma wiener_ikehara_smooth_aux (l0 : Continuous ψ) (hsupp : HasCompactSupport ψ)
-    (hplus : closure (support ψ) ⊆ Ioi 0) (x : ℝ) (hx : 0 < x) :
-    ∫ u in Ioi (-log x), ↑(rexp u) * ψ (rexp u) = ∫ y in Ioi (1 / x), ψ y := by
-  have : HasCompactSupport (rexp • (ψ ∘ rexp)) := (comp_exp_support hsupp hplus).smul_left
-  have : IntegrableOn (fun x ↦ rexp x • (ψ ∘ rexp) x) (Ici (-log x)) volume :=
-    (Continuous.integrable_of_hasCompactSupport (by fun_prop) this).integrableOn
-  simpa [Real.exp_neg, exp_log hx] using integral_deriv_smul_comp_Ioi (by fun_prop)
-    tendsto_exp_atTop (fun t _ ↦ (Real.hasDerivAt_exp t).hasDerivWithinAt)
-    (by fun_prop) (l0.integrable_of_hasCompactSupport hsupp).integrableOn this
-
 variable [WienerIkehara]
 
-private theorem wiener_ikehara_smooth_sub (h1 : Integrable ψ)
-    (hplus : closure (support ψ) ⊆ Ioi 0) :
-    Tendsto (fun x ↦ (A * ∫ y in Ioi x⁻¹, ψ y) - A * ∫ y in Ioi 0, ψ y) atTop (𝓝 0) := by
-  obtain ⟨ε, _, _⟩ := Metric.eventually_nhds_iff.mp <| comp_exp_support0 hplus
-  apply tendsto_nhds_of_eventually_eq; filter_upwards [eventually_gt_atTop ε⁻¹] with x _
-  simp_rw [← MeasureTheory.integral_indicator measurableSet_Ioi, ← mul_sub,
-    ← integral_sub (h1.indicator measurableSet_Ioi) (h1.indicator measurableSet_Ioi)]
-  simp only [mul_eq_zero, ofReal_eq_zero]
-  refine Or.inr (integral_eq_zero_of_ae (Eventually.of_forall fun t ↦ ?_))
-  have : 0 < ε⁻¹ := by positivity
-  have : 0 < x := by linarith
-  have : 0 < x⁻¹ := by positivity
-  rw [(by grind : Ioi 0 = Ioc 0 x⁻¹ ∪ Ioi x⁻¹), indicator_union_of_disjoint (by simp) ψ,
-    Pi.zero_apply]
-  by_cases ht : t ∈ Ioc 0 x⁻¹
-  · grind [abs_le, norm_eq_abs, dist_zero_right, indicator_of_mem, inv_lt_comm₀]
-  simp [ht]
-
-private lemma wiener_ikehara_smooth (hsmooth : ContDiff ℝ ∞ ψ)
-    (hsupp : HasCompactSupport ψ) (hplus : closure (support ψ) ⊆ Ioi 0) :
-    Tendsto (fun x : ℝ ↦ (∑' n, f n * ψ (n / x)) / x - A * ∫ y in Ioi 0, ψ y)
-      atTop (𝓝 0) := by
+lemma wiener_ikehara_smooth (hsmooth : ContDiff ℝ ∞ ψ) (hsupp : HasCompactSupport ψ)
+    (hplus : closure (support ψ) ⊆ Ioi 0) : Tendsto (fun x ↦ (∑' n, f n * ψ (n / x)) / x)
+    atTop (𝓝 (A * ∫ y in Ioi 0, ψ y)) := by
   let h (x : ℝ) : ℂ := rexp (2 * π * x) * ψ (exp (2 * π * x))
   have h1 : ContDiff ℝ ∞ h := by
     have : ContDiff ℝ ∞ (fun x : ℝ => (rexp (2 * π * x))) := (contDiff_const.mul contDiff_id).exp
@@ -626,7 +597,7 @@ private lemma wiener_ikehara_smooth (hsmooth : ContDiff ℝ ∞ ψ)
     norm_cast
     rw [Real.exp_log hy]
   have l2 : ∀ᶠ x in atTop, S 1 (𝓕 g : 𝓢(ℝ, ℂ)) x =
-      ∑' (n : ℕ), f n * ψ (n / x) / x - A * ∫ (y : ℝ) in Ioi x⁻¹, ψ y := by
+      ∑' n, f n * ψ (n / x) / x - A * ∫ y in Ioi x⁻¹, ψ y := by
     filter_upwards [eventually_gt_atTop 0] with x hx
     unfold S S₁
     congr
@@ -642,23 +613,42 @@ private lemma wiener_ikehara_smooth (hsmooth : ContDiff ℝ ∞ ψ)
       field_simp; norm_cast
       rw [MeasureTheory.integral_Ici_eq_integral_Ioi]
       left
-      exact wiener_ikehara_smooth_aux hsmooth.continuous hsupp hplus x hx
-  simpa [tsum_div_const] using ((limiting_cor_schwartz g).congr' l2).add
-    (wiener_ikehara_smooth_sub (hsmooth.continuous.integrable_of_hasCompactSupport hsupp) hplus)
+      have hcont := hsmooth.continuous
+      have : HasCompactSupport (rexp • (ψ ∘ rexp)) := (comp_exp_support hsupp hplus).smul_left
+      simpa [Real.exp_neg, exp_log hx] using integral_deriv_smul_comp_Ioi (by fun_prop)
+        tendsto_exp_atTop (fun t _ ↦ (Real.hasDerivAt_exp t).hasDerivWithinAt)
+        (by fun_prop) (hcont.integrable_of_hasCompactSupport hsupp).integrableOn
+        ((Continuous.integrable_of_hasCompactSupport (by fun_prop) this).integrableOn :
+        IntegrableOn _ (Ici (-log x)) _)
+  have : Tendsto (fun x ↦ (A * ∫ y in Ioi x⁻¹, ψ y) - A * ∫ y in Ioi 0, ψ y) atTop (𝓝 0) := by
+    obtain ⟨ε, _, _⟩ := Metric.eventually_nhds_iff.mp <| comp_exp_support0 hplus
+    have h1 : Integrable ψ := hsmooth.continuous.integrable_of_hasCompactSupport hsupp
+    apply tendsto_nhds_of_eventually_eq; filter_upwards [eventually_gt_atTop ε⁻¹] with x _
+    simp_rw [← MeasureTheory.integral_indicator measurableSet_Ioi, ← mul_sub,
+      ← integral_sub (h1.indicator measurableSet_Ioi) (h1.indicator measurableSet_Ioi)]
+    simp only [mul_eq_zero, ofReal_eq_zero]
+    refine Or.inr (integral_eq_zero_of_ae (Eventually.of_forall fun t ↦ ?_))
+    have : 0 < ε⁻¹ := by positivity
+    have : 0 < x := by linarith
+    have : 0 < x⁻¹ := by positivity
+    rw [(by grind : Ioi 0 = Ioc 0 x⁻¹ ∪ Ioi x⁻¹), indicator_union_of_disjoint (by simp) ψ,
+      Pi.zero_apply]
+    by_cases ht : t ∈ Ioc 0 x⁻¹
+    · simp_all; grind [inv_lt_comm₀]
+    simp [ht]
+  simpa [tendsto_sub_nhds_zero_iff, tsum_div_const] using ((limiting_cor_schwartz g).congr' l2).add
+    this
 
-private lemma wiener_ikehara_smooth_real {Ψ : ℝ → ℝ} (hsmooth : ContDiff ℝ ∞ Ψ)
+lemma wiener_ikehara_smooth_real {Ψ : ℝ → ℝ} (hsmooth : ContDiff ℝ ∞ Ψ)
     (hsupp : HasCompactSupport Ψ) (hplus : closure (support Ψ) ⊆ Ioi 0) :
-    Tendsto (fun x : ℝ ↦ (∑' n, f n * Ψ (n / x)) / x) atTop (nhds (A * ∫ y in Ioi 0, Ψ y)) := by
+    Tendsto (fun x ↦ (∑' n, f n * Ψ (n / x)) / x) atTop (nhds (A * ∫ y in Ioi 0, Ψ y)) := by
   have : Tendsto (fun x ↦ (∑' n, f n * (ofReal ∘ Ψ) (n / x)) / x) atTop
-      (nhds (A * ∫ y in Ioi 0, (ofReal ∘ Ψ) y)) := tendsto_sub_nhds_zero_iff.mp <|
-      wiener_ikehara_smooth (ofRealCLM.contDiff.comp hsmooth) (hsupp.comp_left rfl)
-      (by rwa [support_comp_eq]; simp)
+      (nhds (A * ∫ y in Ioi 0, (ofReal ∘ Ψ) y)) := wiener_ikehara_smooth
+      (ofRealCLM.contDiff.comp hsmooth) (hsupp.comp_left rfl) (by rwa [support_comp_eq]; simp)
   have := (continuous_re.tendsto _).comp this
   simp at this; norm_cast at this
 
 end Smooth
-
-section Interval
 
 variable {a b c d : ℝ}
 
@@ -669,34 +659,27 @@ lemma exists_contDiff_one_on_Icc_support_eq_Ioo (hab : a < b) (hcd : c < d) :
     ∃ Ψ : ℝ → ℝ, ContDiff ℝ ∞ Ψ ∧ HasCompactSupport Ψ ∧
       indicator (Icc b c) 1 ≤ Ψ ∧ Ψ ≤ indicator (Ioo a d) 1 ∧ support Ψ = Ioo a d := by
   obtain ⟨Ψ, hsmooth, hrange, hsupp, hone⟩ :=
-    exists_contMDiff_support_eq_eq_one_iff (I := modelWithCornersSelf ℝ ℝ) (n := ⊤)
+    exists_contMDiff_support_eq_eq_one_iff (I := modelWithCornersSelf ℝ ℝ)
       isOpen_Ioo isClosed_Icc (Icc_subset_Ioo hab hcd)
-  refine ⟨Ψ, hsmooth.contDiff, ?_, indicator_le' (fun x hx ↦ ?_) (fun x _ ↦ ?_),
-    fun x ↦ le_indicator_apply (fun _ ↦ ?_) (fun hx ↦ ?_), hsupp⟩
-  · exact HasCompactSupport.of_support_subset_isCompact isCompact_Icc (hsupp ▸ Ioo_subset_Icc_self)
-  · exact ((hone x).mp hx).ge
-  · exact (hrange (mem_range_self x)).1
-  · exact (hrange (mem_range_self x)).2
-  · have hx' : x ∉ support Ψ := hsupp ▸ hx
-    simp only [mem_support, not_not] at hx'
-    exact hx'.le
+  exact ⟨Ψ, hsmooth.contDiff, .of_support_subset_isCompact isCompact_Icc
+    (hsupp ▸ Ioo_subset_Icc_self), indicator_le' (fun x hx ↦ ((hone x).mp hx).ge)
+    fun x _ ↦ (hrange (mem_range_self x)).1, fun x ↦ le_indicator_apply
+    (fun _ ↦ (hrange (mem_range_self x)).2) (by grind [mem_support]), hsupp⟩
 
 /-- A version of `exists_contDiff_one_on_Icc_support_eq_Ioo` for cutoffs supported away from the
 origin, additionally controlling the integral of the cutoff from above and below by the lengths of
 `Ioo a d` and `Icc b c` respectively. -/
 private lemma exists_cutoff (ha : 0 < a) (hab : a < b) (hbc : b ≤ c) (hcd : c < d) :
-    ∃ ψ : ℝ → ℝ, ContDiff ℝ ∞ ψ ∧ HasCompactSupport ψ ∧ closure (support ψ) ⊆ Ioi 0 ∧
+    ∃ ψ, ContDiff ℝ ∞ ψ ∧ HasCompactSupport ψ ∧ closure (support ψ) ⊆ Ioi 0 ∧
       indicator (Icc b c) 1 ≤ ψ ∧ ψ ≤ indicator (Ioo a d) 1 ∧
       c - b ≤ ∫ y in Ioi 0, ψ y ∧ ∫ y in Ioi 0, ψ y ≤ d - a := by
   have had : a < d := hab.trans_le (hbc.trans hcd.le)
   obtain ⟨ψ, h1, h2, h3, h4, h5⟩ := exists_contDiff_one_on_Icc_support_eq_Ioo hab hcd
-  have hsupp : closure (support ψ) ⊆ Ioi 0 := by
-    simp [h5, had.ne, Icc_subset_Ioi_iff had.le, ha]
+  have hsupp : closure (support ψ) ⊆ Ioi 0 := by simp [h5, had.ne, Icc_subset_Ioi_iff had.le, ha]
   have hψ : Integrable ψ := h1.continuous.integrable_of_hasCompactSupport h2
-  have hfull : ∫ y in Ioi 0, ψ y = ∫ y, ψ y :=
-    setIntegral_eq_integral_of_forall_compl_eq_zero fun x hx ↦
+  have hfull : ∫ y in Ioi 0, ψ y = _ := setIntegral_eq_integral_of_forall_compl_eq_zero fun x hx ↦
       notMem_support.1 fun h ↦ hx (hsupp (subset_closure h))
-  have hind {s : Set ℝ} (hs : MeasurableSet s) (hs' : volume s ≠ ⊤) :
+  have hind {s} (hs : MeasurableSet s) (hs' : volume s ≠ ⊤) :
       Integrable (indicator s (1 : ℝ → ℝ)) :=
     (integrable_indicator_iff hs).2 (integrableOn_const hs')
   refine ⟨ψ, h1, h2, hsupp, h3, h4, ?_, ?_⟩
@@ -704,8 +687,6 @@ private lemma exists_cutoff (ha : 0 < a) (hab : a < b) (hbc : b ≤ c) (hcd : c 
     exact integral_mono (hind measurableSet_Icc (by simp)) hψ h3
   · rw [hfull, ← volume_real_Ioo_of_le had.le, ← integral_indicator_one measurableSet_Ioo]
     exact integral_mono hψ (hind measurableSet_Ioo (by simp)) h4
-
-end Interval
 
 variable {x : ℝ} {g : ℝ → ℝ} [WienerIkehara]
 
