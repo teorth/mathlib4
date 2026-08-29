@@ -694,10 +694,9 @@ private lemma WI_summable (hg : HasCompactSupport g) (hx : 0 < x) :
   simp only [support_mul]; apply Finite.inter_of_right; rw [finite_iff_bddAbove]
   exact ⟨Nat.ceil (M * x), fun i hi ↦ by simpa using Nat.ceil_mono ((div_le_iff₀ hx).mp (hM hi))⟩
 
-/-- The *Wiener-Ikehara Tauberian Theorem*: If `f` is a nonnegative arithmetic
-function whose L-series has a simple pole at `s = 1` with residue `A` and otherwise extends
-continuously to the closed half-plane `re s ≥ 1`, then `∑ n < N, f n` is asymptotic to `A*N`. -/
-theorem tendsto_sum_div : Tendsto (fun N ↦ (∑ i ∈ .range N, f i) / N) atTop (𝓝 A) := by
+/-- The *Wiener-Ikehara Tauberian Theorem*, summing over naturals `n < N`; see
+`WienerIkehara.tendsto_sum_div` for the version summing over reals `n ≤ x`. -/
+theorem tendsto_sum_range_div : Tendsto (fun N ↦ (∑ i ∈ .range N, f i) / N) atTop (𝓝 A) := by
   have hI {u v} (huv : u < v) : HasCompactSupport (indicator (Ico u v) (1 : ℝ → ℝ)) := by
     simpa [HasCompactSupport, tsupport, huv.ne] using isCompact_Icc (a := u) (b := v)
   have hsum {N : ℕ} (hN : (0 : ℝ) < N) (u : ℝ) :
@@ -739,5 +738,28 @@ theorem tendsto_sum_div : Tendsto (fun N ↦ (∑ i ∈ .range N, f i) / N) atTo
     · exact C_nonneg
     · positivity
     exacts [hpos _, WI_summable (hI (by linarith)) hN, WI_summable h2 hN]
+
+/-- The *Wiener-Ikehara Tauberian Theorem*: if `f` is a nonnegative arithmetic function whose
+`L`-series has a simple pole at `s = 1` with residue `A` and otherwise extends continuously to the
+closed half-plane `re s ≥ 1`, then `∑ n ≤ x, f n` is asymptotic to `A * x`. -/
+theorem tendsto_sum_div : Tendsto (fun x : ℝ ↦ (∑ n ∈ .Icc 0 ⌊x⌋₊, f n) / x) atTop (𝓝 A) := by
+  have e : ∀ N : ℕ, ∑ n ∈ Finset.Icc 0 N, f n = ∑ i ∈ Finset.range (N + 1), f i := fun N ↦ by
+    rw [Nat.range_eq_Icc_zero_sub_one (N + 1) (by omega)]; simp
+  have hfloor : Tendsto
+      (fun x : ℝ ↦ (∑ i ∈ Finset.range (⌊x⌋₊ + 1), f i) / ((⌊x⌋₊ : ℝ) + 1)) atTop (𝓝 A) := by
+    simpa [Function.comp_def, Nat.cast_add_one] using
+      tendsto_sum_range_div.comp ((tendsto_add_atTop_nat 1).comp tendsto_nat_floor_atTop)
+  have hquot : Tendsto (fun x : ℝ ↦ ((⌊x⌋₊ : ℝ) + 1) / x) atTop (𝓝 1) := by
+    have h1 := (tendsto_nat_floor_div_atTop (R := ℝ)).add tendsto_inv_atTop_zero
+    simp only [add_zero] at h1
+    refine h1.congr' ?_
+    filter_upwards with x
+    rw [add_div, one_div]
+  have hm := hfloor.mul hquot
+  rw [mul_one] at hm
+  refine hm.congr' ?_
+  filter_upwards [eventually_gt_atTop (0 : ℝ)] with x hx
+  have hc : ((⌊x⌋₊ : ℝ) + 1) ≠ 0 := by positivity
+  rw [e ⌊x⌋₊]; field_simp
 
 end WienerIkehara

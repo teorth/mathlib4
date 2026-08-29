@@ -16,9 +16,11 @@ Wiener–Ikehara Tauberian theorem `WienerIkehara.tendsto_sum_div`.
 
 ## Main results
 
-* `ArithmeticFunction.vonMangoldt.tendsto_residueClass_sum_div_atTop`: the weak prime number theorem in arithmetic progressions: for `a` coprime to `q`,
-  `∑ n < N, n ≡ a [MOD q], Λ n = N / q.totient + o(N)`.
-* `ArithmeticFunction.vonMangoldt.tendsto_sum_div_atTop`: the weak prime number theorem `∑ n < N, Λ n = N + o(N)`, the `q = 1` case.
+* `ArithmeticFunction.vonMangoldt.tendsto_residueClass_sum_div_atTop`: the weak prime number
+  theorem in arithmetic progressions: for `a` coprime to `q`,
+  `∑ n ≤ x, n ≡ a [MOD q], Λ n = x / q.totient + o(x)`.
+* `ArithmeticFunction.vonMangoldt.tendsto_sum_div_atTop`: the weak prime number theorem
+  `∑ n ≤ x, Λ n = x + o(x)`, the `q = 1` case.
 * `Chebyshev.isEquivalent_psi_id`: the `ψ`-form of the prime number theorem, `ψ x ~ x`
   (equivalently `Chebyshev.tendsto_psi_div_atTop`, `ψ x / x → 1`).
 * `Chebyshev.isEquivalent_theta_id`: the `θ`-form, `θ x ~ x`.
@@ -31,9 +33,9 @@ open ArithmeticFunction.vonMangoldt Filter LSeries Chebyshev Real Finset ZMod As
 open scoped Topology
 
 /-- The Wiener–Ikehara theorem applied to the von Mangoldt function restricted to the residue
-class `a` mod `q`: the average of `residueClass a` over `[0, N)` tends to `(q.totient)⁻¹`. -/
+class `a` mod `q`: the average of `residueClass a` over `[0, x]` tends to `(q.totient)⁻¹`. -/
 private theorem tendsto_residueClass_sum_div {q : ℕ} [NeZero q] {a : ZMod q} (ha : IsUnit a) :
-    Tendsto (fun N ↦ (∑ i ∈ range N, residueClass a i) / N) atTop (𝓝 (q.totient : ℝ)⁻¹) :=
+    Tendsto (fun x : ℝ ↦ (∑ n ∈ Icc 0 ⌊x⌋₊, residueClass a n) / x) atTop (𝓝 (q.totient : ℝ)⁻¹) :=
   @WienerIkehara.tendsto_sum_div
     { f := residueClass a
       C := log 4 + 4
@@ -62,52 +64,29 @@ private theorem tendsto_residueClass_sum_div {q : ℕ} [NeZero q] {a : ZMod q} (
       hpos := residueClass_nonneg a }
 
 /-- **The weak prime number theorem in arithmetic progressions.**  For `a` coprime to `q`, the
-von Mangoldt function summed over `n < N` with `n ≡ a mod q` grows like `N / q.totient`. -/
-theorem ArithmeticFunction.vonMangoldt.tendsto_residueClass_sum_div_atTop {q a : ℕ} [NeZero q] (ha : a.Coprime q) (ha' : a < q) :
-    Tendsto (fun N ↦ (∑ n ∈ range N, if n % q = a then Λ n else 0) / N) atTop
+von Mangoldt function summed over `n ≤ x` with `n ≡ a mod q` grows like `x / q.totient`. -/
+theorem ArithmeticFunction.vonMangoldt.tendsto_residueClass_sum_div_atTop {q a : ℕ} [NeZero q]
+    (ha : a.Coprime q) (ha' : a < q) :
+    Tendsto (fun x : ℝ ↦ (∑ n ∈ Icc 0 ⌊x⌋₊, if n % q = a then Λ n else 0) / x) atTop
       (𝓝 (1 / (q.totient : ℝ))) := by
   rw [one_div]
-  refine (tendsto_residueClass_sum_div ((isUnit_iff_coprime a q).mpr ha)).congr (fun N ↦ ?_)
+  refine (tendsto_residueClass_sum_div ((isUnit_iff_coprime a q).mpr ha)).congr (fun x ↦ ?_)
   congr 1
   refine sum_congr rfl fun n _ ↦ ?_
   simp only [residueClass, Set.indicator_apply, Set.mem_ofPred_eq, natCast_eq_natCast_iff',
     Nat.mod_eq_of_lt ha']
 
-/-- **The weak prime number theorem** `∑ n < N, Λ n = N + o(N)`, as the `q = 1` case of the
+/-- **The weak prime number theorem** `∑ n ≤ x, Λ n = x + o(x)`, as the `q = 1` case of the
 weak prime number theorem in arithmetic progressions. -/
-theorem ArithmeticFunction.vonMangoldt.tendsto_sum_div_atTop : Tendsto (fun N ↦ (∑ i ∈ range N, Λ i) / N) atTop (𝓝 1) := by
-  simpa [Nat.mod_one, Nat.totient_one] using tendsto_residueClass_sum_div_atTop (q := 1) (a := 0) (by simp) one_pos
+theorem ArithmeticFunction.vonMangoldt.tendsto_sum_div_atTop :
+    Tendsto (fun x : ℝ ↦ (∑ n ∈ Icc 0 ⌊x⌋₊, Λ n) / x) atTop (𝓝 1) := by
+  simpa [Nat.mod_one, Nat.totient_one] using
+    tendsto_residueClass_sum_div_atTop (q := 1) (a := 0) (by simp) one_pos
 
 /-- **The prime number theorem, `ψ` form**: the Chebyshev function `ψ x = ∑ n ≤ x, Λ n` satisfies
 `ψ x / x → 1` as `x → ∞`. -/
-theorem Chebyshev.tendsto_psi_div_atTop : Tendsto (fun x : ℝ ↦ ψ x / x) atTop (𝓝 1) := by
-  suffices Tendsto (fun N : ℕ ↦ ψ (N : ℝ) / N) atTop (𝓝 1) by
-    have hm := (this.comp tendsto_nat_floor_atTop).mul tendsto_nat_floor_div_atTop
-    rw [one_mul] at hm
-    refine hm.congr' ?_
-    filter_upwards [eventually_gt_atTop (1 : ℝ)] with x hx
-    have : (0 : ℝ) < x := by linarith
-    have : (0 : ℝ) < ⌊x⌋₊ := mod_cast Nat.floor_pos.mpr hx.le
-    rw [Function.comp_apply, psi_eq_psi_coe_floor x]
-    field_simp
-  have e : ∀ N : ℕ, ψ (N : ℝ) = ∑ i ∈ range (N + 1), Λ i := fun N ↦ by
-    rw [psi_eq_sum_Icc, Nat.floor_natCast, Nat.range_eq_Icc_zero_sub_one (N + 1) (by omega)]
-    simp
-  have h1 : Tendsto (fun N : ℕ ↦ (∑ i ∈ range (N + 1), Λ i) / ((N : ℝ) + 1)) atTop (𝓝 1) := by
-    simpa [Function.comp_def, Nat.cast_add_one] using tendsto_sum_div_atTop.comp (tendsto_add_atTop_nat 1)
-  have h2 : Tendsto (fun N : ℕ ↦ ((N : ℝ) + 1) / N) atTop (𝓝 1) := by
-    have hc : Tendsto (fun N : ℕ ↦ (N : ℝ)⁻¹) atTop (𝓝 0) :=
-      tendsto_inv_atTop_zero.comp (tendsto_natCast_atTop_atTop (R := ℝ))
-    have h : Tendsto (fun N : ℕ ↦ 1 + (N : ℝ)⁻¹) atTop (𝓝 1) := by
-      simpa using tendsto_const_nhds.add hc
-    refine h.congr' ?_
-    filter_upwards [eventually_gt_atTop 0] with N hN
-    field_simp
-  have hmul := h1.mul h2
-  rw [one_mul] at hmul
-  refine hmul.congr' ?_
-  filter_upwards [eventually_gt_atTop 0] with N hN
-  rw [e N]; field_simp
+theorem Chebyshev.tendsto_psi_div_atTop : Tendsto (fun x : ℝ ↦ ψ x / x) atTop (𝓝 1) :=
+  tendsto_sum_div_atTop.congr fun x ↦ by rw [psi_eq_sum_Icc]
 
 /-- **The prime number theorem, `ψ` form**: the Chebyshev function `ψ` is asymptotically
 equivalent to the identity, i.e. `ψ x ~ x`. -/
