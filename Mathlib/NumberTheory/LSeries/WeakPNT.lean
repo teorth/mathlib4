@@ -19,11 +19,13 @@ Wiener–Ikehara Tauberian theorem `WienerIkehara.tendsto_sum_div`.
 * `WeakPNT_AP`: the weak prime number theorem in arithmetic progressions: for `a` coprime to `q`,
   `∑ n < N, n ≡ a [MOD q], Λ n = N / q.totient + o(N)`.
 * `WeakPNT`: the weak prime number theorem `∑ n < N, Λ n = N + o(N)`, the `q = 1` case.
+* `Chebyshev.isEquivalent_psi_id`: the `ψ`-form of the prime number theorem, `ψ x ~ x`
+  (equivalently `Chebyshev.tendsto_psi_div_atTop`, `ψ x / x → 1`).
 -/
 
 public section
 
-open ArithmeticFunction.vonMangoldt Filter LSeries Chebyshev Real Finset
+open ArithmeticFunction.vonMangoldt Filter LSeries Chebyshev Real Finset ZMod
 open scoped Topology
 
 /-- The Wiener–Ikehara theorem applied to the von Mangoldt function restricted to the residue
@@ -39,12 +41,12 @@ private theorem tendsto_residueClass_sum_div {q : ℕ} [NeZero q] {a : ZMod q} (
               refine sum_le_sum fun i _ ↦ ?_
               rw [norm_of_nonneg (residueClass_nonneg a i)]
               exact residueClass_le a i
-          _ ≤ (Real.log 4 + 4) * N := by
+          _ ≤ (log 4 + 4) * N := by
               rcases eq_or_ne N 0 with rfl | h
               · simp
               grw [Nat.range_eq_Icc_zero_sub_one _ h, (by simp : N - 1 = ⌊(N : ℝ) - 1⌋₊),
-                ← psi_eq_sum_Icc, psi_le_const_mul_self <|
-                sub_nonneg_of_le <| Nat.one_le_cast_iff_ne_zero.mpr h]
+                ← psi_eq_sum_Icc, psi_le_const_mul_self <| sub_nonneg_of_le <|
+                Nat.one_le_cast_iff_ne_zero.mpr h]
               gcongr
               linarith
       A := (q.totient : ℝ)⁻¹
@@ -63,14 +65,54 @@ theorem WeakPNT_AP {q a : ℕ} [NeZero q] (ha : a.Coprime q) (ha' : a < q) :
     Tendsto (fun N ↦ (∑ n ∈ range N, if n % q = a then Λ n else 0) / N) atTop
       (𝓝 (1 / (q.totient : ℝ))) := by
   rw [one_div]
-  refine Tendsto.congr (fun N ↦ ?_)
-    (tendsto_residueClass_sum_div ((ZMod.isUnit_iff_coprime a q).mpr ha))
+  refine (tendsto_residueClass_sum_div ((isUnit_iff_coprime a q).mpr ha)).congr (fun N ↦ ?_)
   congr 1
   refine sum_congr rfl fun n _ ↦ ?_
-  simp only [residueClass, Set.indicator_apply, Set.mem_ofPred_eq,
-    ZMod.natCast_eq_natCast_iff', Nat.mod_eq_of_lt ha']
+  simp only [residueClass, Set.indicator_apply, Set.mem_ofPred_eq, natCast_eq_natCast_iff',
+    Nat.mod_eq_of_lt ha']
 
 /-- **The weak prime number theorem** `∑ n < N, Λ n = N + o(N)`, as the `q = 1` case of the
 weak prime number theorem in arithmetic progressions. -/
 theorem WeakPNT : Tendsto (fun N ↦ (∑ i ∈ range N, Λ i) / N) atTop (𝓝 1) := by
   simpa [Nat.mod_one, Nat.totient_one] using WeakPNT_AP (q := 1) (a := 0) (by simp) one_pos
+
+/-- **The prime number theorem, `ψ` form**: the Chebyshev function `ψ x = ∑ n ≤ x, Λ n` satisfies
+`ψ x / x → 1` as `x → ∞`. -/
+theorem Chebyshev.tendsto_psi_div_atTop : Tendsto (fun x : ℝ ↦ ψ x / x) atTop (𝓝 1) := by
+  -- First, the version over the naturals: `ψ N / N → 1`.
+  have hNat : Tendsto (fun N : ℕ ↦ ψ (N : ℝ) / N) atTop (𝓝 1) := by
+    have e : ∀ N : ℕ, ψ (N : ℝ) = ∑ i ∈ range (N + 1), Λ i := fun N ↦ by
+      rw [psi_eq_sum_Icc, Nat.floor_natCast, Nat.range_eq_Icc_zero_sub_one (N + 1) (by omega)]
+      simp
+    have h1 : Tendsto (fun N : ℕ ↦ (∑ i ∈ range (N + 1), Λ i) / ((N : ℝ) + 1)) atTop (𝓝 1) := by
+      simpa [Function.comp_def, Nat.cast_add_one] using WeakPNT.comp (tendsto_add_atTop_nat 1)
+    have h2 : Tendsto (fun N : ℕ ↦ ((N : ℝ) + 1) / N) atTop (𝓝 1) := by
+      have hc : Tendsto (fun N : ℕ ↦ (N : ℝ)⁻¹) atTop (𝓝 0) :=
+        tendsto_inv_atTop_zero.comp (tendsto_natCast_atTop_atTop (R := ℝ))
+      have h : Tendsto (fun N : ℕ ↦ 1 + (N : ℝ)⁻¹) atTop (𝓝 1) := by
+        simpa using tendsto_const_nhds.add hc
+      refine h.congr' ?_
+      filter_upwards [eventually_gt_atTop 0] with N hN
+      field_simp
+    have hmul := h1.mul h2
+    rw [one_mul] at hmul
+    refine hmul.congr' ?_
+    filter_upwards [eventually_gt_atTop 0] with N hN
+    rw [e N]; field_simp
+  -- Upgrade to the reals via the floor.
+  have hm := (hNat.comp tendsto_nat_floor_atTop).mul tendsto_nat_floor_div_atTop
+  rw [one_mul] at hm
+  refine hm.congr' ?_
+  filter_upwards [eventually_gt_atTop (1 : ℝ)] with x hx
+  have hx0 : (0 : ℝ) < x := by linarith
+  have h0 : (0 : ℝ) < ⌊x⌋₊ := by exact_mod_cast Nat.floor_pos.mpr hx.le
+  rw [Function.comp_apply, psi_eq_psi_coe_floor x]
+  field_simp
+
+open Asymptotics in
+/-- **The prime number theorem, `ψ` form**: the Chebyshev function `ψ` is asymptotically
+equivalent to the identity, i.e. `ψ x ~ x`. -/
+theorem Chebyshev.isEquivalent_psi_id : ψ ~[atTop] (id : ℝ → ℝ) := by
+  rw [isEquivalent_iff_tendsto_one
+    (by filter_upwards [eventually_gt_atTop 0] with x hx using hx.ne')]
+  exact Chebyshev.tendsto_psi_div_atTop.congr fun x ↦ by simp [Pi.div_apply]
