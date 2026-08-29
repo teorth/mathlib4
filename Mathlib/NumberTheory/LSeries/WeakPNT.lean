@@ -21,6 +21,8 @@ Wiener–Ikehara Tauberian theorem `WienerIkehara.tendsto_sum_div`.
 * `WeakPNT`: the weak prime number theorem `∑ n < N, Λ n = N + o(N)`, the `q = 1` case.
 * `Chebyshev.isEquivalent_psi_id`: the `ψ`-form of the prime number theorem, `ψ x ~ x`
   (equivalently `Chebyshev.tendsto_psi_div_atTop`, `ψ x / x → 1`).
+* `Chebyshev.isEquivalent_theta_id`: the `θ`-form, `θ x ~ x`.
+* `Chebyshev.isEquivalent_log_primorial_id`: `log (primorial n) ~ n`.
 -/
 
 public section
@@ -116,3 +118,59 @@ theorem Chebyshev.isEquivalent_psi_id : ψ ~[atTop] (id : ℝ → ℝ) := by
   rw [isEquivalent_iff_tendsto_one
     (by filter_upwards [eventually_gt_atTop 0] with x hx using hx.ne')]
   exact Chebyshev.tendsto_psi_div_atTop.congr fun x ↦ by simp [Pi.div_apply]
+
+/-- **The prime number theorem, `θ` form**: the Chebyshev function `θ x = ∑ p ≤ x, log p`
+satisfies `θ x / x → 1` as `x → ∞`.  This is `chebyshev_asymptotic` in the PNT project. -/
+theorem Chebyshev.tendsto_theta_div_atTop : Tendsto (fun x : ℝ ↦ θ x / x) atTop (𝓝 1) := by
+  -- `(ψ - θ) / x → 0`, since `ψ x - θ x ≤ 2 √x log x = o(x)`.
+  have hlog : Tendsto (fun x : ℝ ↦ log x / √x) atTop (𝓝 0) := by
+    refine ((isLittleO_log_rpow_atTop (by norm_num : (0:ℝ) < 1/2)).tendsto_div_nhds_zero).congr
+      fun x ↦ ?_
+    rw [Real.sqrt_eq_rpow]
+  have hub : Tendsto (fun x : ℝ ↦ 2 * √x * log x / x) atTop (𝓝 0) := by
+    have h2 : Tendsto (fun x : ℝ ↦ 2 * (log x / √x)) atTop (𝓝 0) := by
+      simpa using hlog.const_mul (2 : ℝ)
+    refine h2.congr' ?_
+    filter_upwards [eventually_gt_atTop (0 : ℝ)] with x hx
+    have hsx : (0 : ℝ) < √x := Real.sqrt_pos.mpr hx
+    have h1 : √x * √x = x := Real.mul_self_sqrt hx.le
+    rw [mul_assoc, mul_div_assoc]
+    congr 1
+    rw [div_eq_div_iff hsx.ne' hx.ne']
+    linear_combination -log x * h1
+  have hdiff : Tendsto (fun x : ℝ ↦ (ψ x - θ x) / x) atTop (𝓝 0) := by
+    refine tendsto_of_tendsto_of_tendsto_of_le_of_le' tendsto_const_nhds hub ?_ ?_
+    · filter_upwards [eventually_gt_atTop (0 : ℝ)] with x hx
+      exact div_nonneg (sub_nonneg.mpr (theta_le_psi x)) hx.le
+    · filter_upwards [eventually_ge_atTop (1 : ℝ)] with x hx
+      have : (0 : ℝ) ≤ x := by linarith
+      gcongr
+      exact psi_sub_theta_le hx
+  have hcomb := Chebyshev.tendsto_psi_div_atTop.sub hdiff
+  simp only [sub_zero] at hcomb
+  refine hcomb.congr' ?_
+  filter_upwards [eventually_gt_atTop (0 : ℝ)] with x hx
+  rw [div_sub_div_same]; congr 1; ring
+
+open Asymptotics in
+/-- **The prime number theorem, `θ` form**: the Chebyshev function `θ` is asymptotically
+equivalent to the identity, i.e. `θ x ~ x`. -/
+theorem Chebyshev.isEquivalent_theta_id : θ ~[atTop] (id : ℝ → ℝ) := by
+  rw [isEquivalent_iff_tendsto_one
+    (by filter_upwards [eventually_gt_atTop 0] with x hx using hx.ne')]
+  exact Chebyshev.tendsto_theta_div_atTop.congr fun x ↦ by simp [Pi.div_apply]
+
+/-- **Primorial asymptotics**: `log (primorial n) / n → 1`, since `θ n = log (primorial n)`. -/
+theorem Chebyshev.tendsto_log_primorial_div_atTop :
+    Tendsto (fun n : ℕ ↦ Real.log (primorial n) / n) atTop (𝓝 1) := by
+  refine (tendsto_theta_div_atTop.comp (tendsto_natCast_atTop_atTop (R := ℝ))).congr fun n ↦ ?_
+  rw [Function.comp_apply, theta_eq_log_primorial, Nat.floor_natCast]
+
+open Asymptotics in
+/-- **Primorial asymptotics**: `log (primorial n) ~ n`, a consequence of the prime number theorem
+via `θ n = log (primorial n)`. -/
+theorem Chebyshev.isEquivalent_log_primorial_id :
+    (fun n : ℕ ↦ Real.log (primorial n)) ~[atTop] (fun n ↦ (n : ℝ)) := by
+  rw [isEquivalent_iff_tendsto_one
+    (by filter_upwards [eventually_gt_atTop 0] with n hn using by positivity)]
+  exact tendsto_log_primorial_div_atTop.congr fun n ↦ by simp [Pi.div_apply]
