@@ -509,7 +509,7 @@ omit [DecidablePred p] in
 theorem nth_add_one_le_iff (hp : (Set.ofPred p).Infinite) {n q : ℕ} (hq : p q) :
     nth p (n + 1) ≤ q ↔ nth p n < q := by
   classical
-  rw [← nth_count hq, nth_le_nth hp, nth_lt_nth hp, Nat.add_one_le_iff]
+  rw [← nth_count hq, nth_le_nth hp, nth_lt_nth hp, add_one_le_iff]
 
 end Count
 
