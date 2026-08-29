@@ -109,29 +109,18 @@ theorem isEquivalent_theta_id : θ ~[atTop] id := by
   rw [isEquivalent_iff_tendsto_one (by exact eventually_ne_atTop 0)]
   exact tendsto_theta_div_atTop.congr (by simp)
 
-/-- **The prime number theorem**: the prime counting function satisfies `π x ~ x / log x`.
-
-Deduced from the `θ`-form `θ x ~ x` via Abel summation `π ⌊x⌋ = θ x / log x + O(x / log² x)`
-(`primeCounting_eq_theta_div_log_add_integral`, `integral_theta_div_log_sq_isLittleO`), where the
-remainder is `o(x / log x)`. -/
-theorem isEquivalent_primeCounting :
-    (fun x ↦ (Nat.primeCounting ⌊x⌋₊ : ℝ)) ~[atTop] fun x ↦ x / log x := by
-  have h1 : (fun x ↦ θ x / log x) ~[atTop] fun x ↦ x / log x := by
-    rw [isEquivalent_iff_tendsto_one (by
-      filter_upwards [eventually_gt_atTop 1] with x hx
-      exact (div_pos (by linarith) (log_pos hx)).ne')]
-    refine tendsto_theta_div_atTop.congr' ?_
+/-- **The prime number theorem**: the prime counting function satisfies `π x ~ x / log x`. -/
+theorem isEquivalent_primeCounting : (↑⌊·⌋₊.primeCounting) ~[atTop] fun x ↦ x / log x := by
+  rw [(by grind : (↑⌊·⌋₊.primeCounting) = fun x ↦ θ x / log x + (⌊x⌋₊.primeCounting - θ x / log x))]
+  apply IsEquivalent.add_isLittleO
+  · rw [isEquivalent_iff_tendsto_one (by
+      filter_upwards [eventually_gt_atTop 1] with x hx; grind [log_pos hx])]
+    apply tendsto_theta_div_atTop.congr'
     filter_upwards [eventually_gt_atTop 1] with x hx
-    rw [Pi.div_apply, div_div_div_cancel_right₀ (log_pos hx).ne']
-  have hlittle : (fun x ↦ (Nat.primeCounting ⌊x⌋₊ : ℝ) - θ x / log x) =o[atTop]
-      fun x ↦ x / log x := by
-    refine integral_theta_div_log_sq_isLittleO.congr' ?_ (Eventually.of_forall fun _ ↦ rfl)
-    filter_upwards [eventually_ge_atTop 2] with x hx
-    rw [primeCounting_eq_theta_div_log_add_integral hx]; ring
-  have heq : (fun x ↦ θ x / log x + ((Nat.primeCounting ⌊x⌋₊ : ℝ) - θ x / log x))
-      = fun x ↦ (Nat.primeCounting ⌊x⌋₊ : ℝ) := by funext x; ring
-  rw [← heq]
-  exact h1.add_isLittleO hlittle
+    simp [div_div_div_cancel_right₀ (log_pos hx).ne']
+  · refine integral_theta_div_log_sq_isLittleO.congr' ?_ (Eventually.of_forall fun _ ↦ rfl)
+    filter_upwards [eventually_ge_atTop 2]
+    grind [primeCounting_eq_theta_div_log_add_integral]
 
 /-- If the Chebyshev function `θ` is strictly larger at `b` than at `a`, then there is a prime in
 the half-open interval `(a, b]`. -/
@@ -172,25 +161,13 @@ theorem eventually_exists_prime_mem_Ioc {ε : ℝ} (hε : 0 < ε) :
   exact exists_prime_of_theta_lt (by grind [lt_div_iff₀ hx])
 
 /-- **Consecutive primes are asymptotically equal**: the `(n + 1)`-th prime is asymptotic to the
-`n`-th prime.  A consequence of the small prime gaps `eventually_exists_prime_mem_Ioc`: for any
-`ε > 0` there is eventually a prime in `(pₙ, (1 + ε) * pₙ]`, forcing `pₙ₊₁ ≤ (1 + ε) * pₙ`. -/
+`n`-th prime.. -/
 theorem isEquivalent_nth_prime_succ :
-    (fun n ↦ (Nat.nth Nat.Prime (n + 1) : ℝ)) ~[atTop] fun n ↦ (Nat.nth Nat.Prime n : ℝ) := by
-  have hpos (n : ℕ) : (0 : ℝ) < Nat.nth Nat.Prime n := by
-    have := Nat.add_two_le_nth_prime n; exact_mod_cast (by omega : 0 < Nat.nth Nat.Prime n)
-  have hmono : Monotone (Nat.nth Nat.Prime) := Nat.nth_monotone Nat.infinite_setOfPred_prime
-  -- `pₙ₊₁` is the least prime exceeding `pₙ`, so any prime `q > pₙ` satisfies `pₙ₊₁ ≤ q`.
-  have hmin {n q : ℕ} (hq : q.Prime) (hlt : Nat.nth Nat.Prime n < q) :
-      Nat.nth Nat.Prime (n + 1) ≤ q :=
-    calc Nat.nth Nat.Prime (n + 1)
-        ≤ Nat.nth Nat.Prime (Nat.count Nat.Prime q) :=
-          hmono <| (Nat.count_nth_succ_of_infinite Nat.infinite_setOfPred_prime n).symm.trans_le
-            (Nat.count_monotone Nat.Prime (Nat.add_one_le_iff.mpr hlt))
-      _ = q := Nat.nth_count hq
-  have htop : Tendsto (fun n ↦ (Nat.nth Nat.Prime n : ℝ)) atTop atTop :=
-    tendsto_atTop_mono (fun n ↦ by
-      have := Nat.add_two_le_nth_prime n
-      exact_mod_cast (by omega : n ≤ Nat.nth Nat.Prime n)) tendsto_natCast_atTop_atTop
+    (fun n ↦ ↑(nth Nat.Prime (n + 1))) ~[atTop] fun n ↦ (nth Nat.Prime n : ℝ) := by
+  have hpos (n) : (0 : ℝ) < Nat.nth Nat.Prime n := mod_cast by linarith [add_two_le_nth_prime n]
+  have hmono : Monotone (nth Nat.Prime) := nth_monotone infinite_setOfPred_prime
+  have htop : Tendsto (fun n ↦ (nth Nat.Prime n : ℝ)) atTop atTop :=
+    tendsto_natCast_atTop_atTop.comp (nth_strictMono infinite_setOfPred_prime).tendsto_atTop
   rw [isEquivalent_iff_tendsto_one (Eventually.of_forall fun n ↦ (hpos n).ne')]
   refine tendsto_order.2 ⟨fun c hc ↦ Eventually.of_forall fun n ↦ ?_, fun c hc ↦ ?_⟩
   · rw [Pi.div_apply]
@@ -200,10 +177,10 @@ theorem isEquivalent_nth_prime_succ :
     filter_upwards [htop.eventually (eventually_exists_prime_mem_Ioc hε)] with n hn
     obtain ⟨q, hq, hq1, hq2⟩ := hn
     rw [Pi.div_apply, div_lt_iff₀ (hpos n)]
-    calc (Nat.nth Nat.Prime (n + 1) : ℝ)
-        ≤ q := by exact_mod_cast hmin hq (by exact_mod_cast hq1)
-      _ ≤ (1 + ε) * Nat.nth Nat.Prime n := hq2
-      _ < c * Nat.nth Nat.Prime n := mul_lt_mul_of_pos_right hεc (hpos n)
+    calc
+      _ ≤ ↑q := mod_cast (nth_add_one_le_iff infinite_setOfPred_prime hq).mpr (mod_cast hq1)
+      _ ≤ (1 + ε) * nth Nat.Prime n := hq2
+      _ < _ := mul_lt_mul_of_pos_right hεc (hpos n)
 
 /-- **Primorial asymptotics**: `log (primorial n) / n → 1`. -/
 theorem tendsto_log_primorial_div_atTop : Tendsto (fun n ↦ log (primorial n) / n) atTop (𝓝 1) :=
@@ -244,7 +221,7 @@ theorem M_eq_sum_Icc (x : ℝ) : M x = ∑ n ∈ Icc 0 ⌊x⌋₊, μ n := by
 theorem abs_M_le {x : ℝ} (hx : 0 ≤ x) : |M x| ≤ x := by
   unfold M
   grw [abs_sum_le_sum_abs, ArithmeticFunction.abs_moebius_le_one]
-  simp [Nat.floor_le hx]
+  simp [floor_le hx]
 
 /-- The **Möbius form of the prime number theorem**: `M x / x → 0`. -/
 theorem tendsto_M_div_atTop : Tendsto (fun x ↦ (M x : ℝ) / x) atTop (𝓝 0) := by
