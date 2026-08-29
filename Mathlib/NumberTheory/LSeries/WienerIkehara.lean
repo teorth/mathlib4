@@ -739,27 +739,18 @@ theorem tendsto_sum_range_div : Tendsto (fun N ↦ (∑ i ∈ .range N, f i) / N
     · positivity
     exacts [hpos _, WI_summable (hI (by linarith)) hN, WI_summable h2 hN]
 
-/-- The *Wiener-Ikehara Tauberian Theorem*: if `f` is a nonnegative arithmetic function whose
-`L`-series has a simple pole at `s = 1` with residue `A` and otherwise extends continuously to the
-closed half-plane `re s ≥ 1`, then `∑ n ≤ x, f n` is asymptotic to `A * x`. -/
+/-- The *Wiener-Ikehara Tauberian Theorem* (real cutoff version) -/
 theorem tendsto_sum_div : Tendsto (fun x : ℝ ↦ (∑ n ∈ .Icc 0 ⌊x⌋₊, f n) / x) atTop (𝓝 A) := by
-  have e : ∀ N : ℕ, ∑ n ∈ Finset.Icc 0 N, f n = ∑ i ∈ Finset.range (N + 1), f i := fun N ↦ by
-    rw [Nat.range_eq_Icc_zero_sub_one (N + 1) (by omega)]; simp
-  have hfloor : Tendsto
-      (fun x : ℝ ↦ (∑ i ∈ Finset.range (⌊x⌋₊ + 1), f i) / ((⌊x⌋₊ : ℝ) + 1)) atTop (𝓝 A) := by
-    simpa [Function.comp_def, Nat.cast_add_one] using
-      tendsto_sum_range_div.comp ((tendsto_add_atTop_nat 1).comp tendsto_nat_floor_atTop)
-  have hquot : Tendsto (fun x : ℝ ↦ ((⌊x⌋₊ : ℝ) + 1) / x) atTop (𝓝 1) := by
-    have h1 := (tendsto_nat_floor_div_atTop (R := ℝ)).add tendsto_inv_atTop_zero
-    simp only [add_zero] at h1
-    refine h1.congr' ?_
-    filter_upwards with x
-    rw [add_div, one_div]
-  have hm := hfloor.mul hquot
-  rw [mul_one] at hm
-  refine hm.congr' ?_
-  filter_upwards [eventually_gt_atTop (0 : ℝ)] with x hx
+  have : Tendsto (fun x : ℝ ↦ (∑ i ∈ .range (⌊x⌋₊ + 1), f i) / (⌊x⌋₊ + 1) * ((⌊x⌋₊ + 1) / x)) atTop
+      (𝓝 A) := by
+    rw [← mul_one A]
+    apply Tendsto.mul
+    · simpa [Function.comp_def] using tendsto_sum_range_div.comp
+        ((tendsto_add_atTop_nat 1).comp tendsto_nat_floor_atTop)
+    · convert (tendsto_nat_floor_div_atTop (R := ℝ)).add tendsto_inv_atTop_zero <;> grind
+  refine this.congr' ?_
+  filter_upwards [eventually_gt_atTop 0] with x hx
   have hc : ((⌊x⌋₊ : ℝ) + 1) ≠ 0 := by positivity
-  rw [e ⌊x⌋₊]; field_simp
+  rw [Nat.range_eq_Icc_zero_sub_one _ (by omega)]; field_simp; simp
 
 end WienerIkehara

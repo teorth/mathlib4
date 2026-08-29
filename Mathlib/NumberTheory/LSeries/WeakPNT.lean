@@ -32,6 +32,7 @@ Wiener–Ikehara Tauberian theorem `WienerIkehara.tendsto_sum_div`.
 
 public section
 
+open Nat hiding log
 open ArithmeticFunction.vonMangoldt Filter LSeries Chebyshev Real Finset ZMod Asymptotics
 open scoped Topology
 
@@ -42,20 +43,19 @@ private theorem tendsto_residueClass_sum_div {q : ℕ} [NeZero q] {a : ZMod q} (
   @WienerIkehara.tendsto_sum_div
     { f := residueClass a
       C := log 4 + 4
-      bound N := by
-        calc ∑ i ∈ range N, ‖residueClass a i‖
-            ≤ ∑ i ∈ range N, Λ i := by
-              refine sum_le_sum fun i _ ↦ ?_
-              rw [norm_of_nonneg (residueClass_nonneg a i)]
-              exact residueClass_le a i
-          _ ≤ (log 4 + 4) * N := by
-              rcases eq_or_ne N 0 with rfl | h
-              · simp
-              grw [Nat.range_eq_Icc_zero_sub_one _ h, (by simp : N - 1 = ⌊(N : ℝ) - 1⌋₊),
-                ← psi_eq_sum_Icc, psi_le_const_mul_self <| sub_nonneg_of_le <|
-                Nat.one_le_cast_iff_ne_zero.mpr h]
-              gcongr
-              linarith
+      bound N := calc
+        _ ≤ ∑ i ∈ range N, Λ i := by
+          refine sum_le_sum fun i _ ↦ ?_
+          rw [norm_of_nonneg (residueClass_nonneg a i)]
+          exact residueClass_le a i
+        _ ≤ (log 4 + 4) * N := by
+          rcases eq_or_ne N 0 with rfl | h
+          · simp
+          grw [range_eq_Icc_zero_sub_one _ h, (by simp : N - 1 = ⌊(N : ℝ) - 1⌋₊),
+            ← psi_eq_sum_Icc, psi_le_const_mul_self <| sub_nonneg_of_le <|
+            one_le_cast_iff_ne_zero.mpr h]
+          gcongr
+          linarith
       A := q.totient⁻¹
       hA := by positivity
       G := LFunctionResidueClassAux a
@@ -68,138 +68,107 @@ private theorem tendsto_residueClass_sum_div {q : ℕ} [NeZero q] {a : ZMod q} (
 
 /-- **The weak prime number theorem in arithmetic progressions.**  For `a` coprime to `q`, the
 von Mangoldt function summed over `n ≤ x` with `n ≡ a mod q` grows like `x / q.totient`. -/
-theorem ArithmeticFunction.vonMangoldt.tendsto_residueClass_sum_div_atTop {q a : ℕ} [NeZero q]
-    (ha : a.Coprime q) (ha' : a < q) :
-    Tendsto (fun x : ℝ ↦ (∑ n ∈ Icc 0 ⌊x⌋₊, if n % q = a then Λ n else 0) / x) atTop
-      (𝓝 (1 / q.totient)) := by
-  rw [one_div]
+theorem ArithmeticFunction.vonMangoldt.tendsto_residueClass_sum_div_atTop {q a} [NeZero q]
+    (ha : a.Coprime q) (ha' : a < q) : Tendsto (fun x : ℝ ↦ (∑ n ∈ Icc 0 ⌊x⌋₊,
+      if n % q = a then Λ n else 0) / x) atTop (𝓝 q.totient⁻¹) := by
   refine (tendsto_residueClass_sum_div ((isUnit_iff_coprime a q).mpr ha)).congr (fun x ↦ ?_)
   congr 1
   refine sum_congr rfl fun n _ ↦ ?_
-  simp only [residueClass, Set.indicator_apply, Set.mem_ofPred_eq, natCast_eq_natCast_iff',
-    Nat.mod_eq_of_lt ha']
-
+  simp [residueClass, Set.indicator_apply, natCast_eq_natCast_iff', mod_eq_of_lt ha']
 namespace Chebyshev
 
 /-- **The prime number theorem, `ψ` form**: `ψ x / x → 1` as `x → ∞`. -/
-theorem tendsto_psi_div_atTop :
-    Tendsto (fun x ↦ ψ x / x) atTop (𝓝 1) := by
-  simpa [Nat.mod_one, Nat.totient_one, psi_eq_sum_Icc] using
+theorem tendsto_psi_div_atTop : Tendsto (fun x ↦ ψ x / x) atTop (𝓝 1) := by
+  simpa [mod_one, totient_one, psi_eq_sum_Icc] using
     tendsto_residueClass_sum_div_atTop (q := 1) (a := 0) (by simp) one_pos
 
 /-- **The prime number theorem, `ψ` form**: `ψ x ∼ x`. -/
 theorem isEquivalent_psi_id : ψ ~[atTop] id := by
-  rw [isEquivalent_iff_tendsto_one
-    (by filter_upwards [eventually_gt_atTop 0] with x hx using hx.ne')]
-  exact tendsto_psi_div_atTop.congr fun _ ↦ by simp [Pi.div_apply]
+  rw [isEquivalent_iff_tendsto_one (by exact eventually_ne_atTop 0)]
+  exact tendsto_psi_div_atTop.congr (by simp)
 
 /-- **The prime number theorem, `θ` form**: `θ x / x → 1` as `x → ∞`. -/
 theorem tendsto_theta_div_atTop : Tendsto (fun x ↦ θ x / x) atTop (𝓝 1) := by
   -- `(ψ - θ) / x → 0`, since `ψ x - θ x = O(√x) = o(x)`.
-  suffices h : Tendsto (fun x ↦ (ψ x - θ x) / x) atTop (𝓝 0) by
-    have := tendsto_psi_div_atTop.sub h
-    convert this.congr' ?_
+  suffices Tendsto (fun x ↦ (ψ x - θ x) / x) atTop (𝓝 0) by
+    convert (tendsto_psi_div_atTop.sub this).congr' ?_
     · simp
-    filter_upwards [eventually_gt_atTop (0 : ℝ)] with x hx
-    rw [div_sub_div_same]; congr 1; ring
+    filter_upwards [eventually_gt_atTop 0]
+    grind
   obtain ⟨C, hC⟩ := psi_sub_theta_le_mul_sqrt
-  have hub : Tendsto (fun x ↦ C * √x / x) atTop (𝓝 0) := by
+  have : Tendsto (fun x ↦ C * √x / x) atTop (𝓝 0) := by
     refine ((tendsto_const_nhds (x := C)).div_atTop tendsto_sqrt_atTop).congr' ?_
-    filter_upwards [eventually_gt_atTop (0 : ℝ)] with x hx
-    rw [div_eq_div_iff (sqrt_pos.mpr hx).ne' hx.ne', mul_assoc, mul_self_sqrt hx.le]
-  refine tendsto_of_tendsto_of_tendsto_of_le_of_le' tendsto_const_nhds hub ?_ ?_
-  · filter_upwards [eventually_gt_atTop (0 : ℝ)] with x hx
-    exact div_nonneg (sub_nonneg.mpr (theta_le_psi x)) hx.le
-  · filter_upwards [eventually_gt_atTop (0 : ℝ)] with x hx
-    gcongr
-    exact hC x
+    filter_upwards [eventually_gt_atTop 0]
+    grind
+  refine tendsto_of_tendsto_of_tendsto_of_le_of_le' tendsto_const_nhds this ?_ ?_
+  · filter_upwards [eventually_gt_atTop 0] with x _
+    positivity [theta_le_psi x]
+  · filter_upwards [eventually_gt_atTop 0] with x _
+    grw [hC x]
 
 /-- **The prime number theorem, `θ` form**: `θ x ~ x`. -/
-theorem isEquivalent_theta_id : θ ~[atTop] (id : ℝ → ℝ) := by
-  rw [isEquivalent_iff_tendsto_one
-    (by filter_upwards [eventually_gt_atTop 0] with x hx using hx.ne')]
-  exact tendsto_theta_div_atTop.congr fun x ↦ by simp [Pi.div_apply]
+theorem isEquivalent_theta_id : θ ~[atTop] id := by
+  rw [isEquivalent_iff_tendsto_one (by exact eventually_ne_atTop 0)]
+  exact tendsto_theta_div_atTop.congr (by simp)
 
 /-- If the Chebyshev function `θ` is strictly larger at `b` than at `a`, then there is a prime in
 the half-open interval `(a, b]`. -/
-theorem exists_prime_of_theta_lt {a b : ℝ} (hab : θ a < θ b) :
-    ∃ p : ℕ, p.Prime ∧ a < p ∧ p ≤ b := by
-  have hfloor : ⌊a⌋₊ ≤ ⌊b⌋₊ := by
-    by_contra h
-    rw [not_le] at h
+theorem exists_prime_of_theta_lt {a b} (hab : θ a < θ b) :
+    ∃ p : ℕ, p.Prime ∧ ↑p ∈ Set.Ioc a b := by
+  have : ⌊a⌋₊ ≤ ⌊b⌋₊ := by
     rw [theta_eq_theta_coe_floor a, theta_eq_theta_coe_floor b] at hab
-    exact absurd (theta_mono (by exact_mod_cast h.le)) (not_le.mpr hab)
-  have hsub : Nat.primesLE ⌊a⌋₊ ⊆ Nat.primesLE ⌊b⌋₊ := Nat.primesLE_mono hfloor
-  have key : ∑ p ∈ Nat.primesLE ⌊b⌋₊ \ Nat.primesLE ⌊a⌋₊, log (p : ℝ) = θ b - θ a := by
-    rw [eq_sub_iff_add_eq, theta_eq_sum_primesLE a, Finset.sum_sdiff hsub,
-      theta_eq_sum_primesLE b]
-  have hpos : (0 : ℝ) < ∑ p ∈ Nat.primesLE ⌊b⌋₊ \ Nat.primesLE ⌊a⌋₊, log (p : ℝ) := by
-    rw [key]; linarith
-  obtain ⟨p, hp⟩ := Finset.nonempty_of_sum_ne_zero hpos.ne'
-  rw [Finset.mem_sdiff, Nat.mem_primesLE, Nat.mem_primesLE] at hp
-  obtain ⟨⟨hpb, hpp⟩, hpa⟩ := hp
-  have hap : ⌊a⌋₊ < p := by
-    by_contra hle
-    exact hpa ⟨not_lt.mp hle, hpp⟩
+    contrapose! hab
+    exact theta_mono (mod_cast hab.le)
+  have : ∑ p ∈ primesLE ⌊b⌋₊ \ primesLE ⌊a⌋₊, log (p : ℝ) + θ a = θ b := by
+    simp_rw [theta_eq_sum_primesLE, Finset.sum_sdiff (primesLE_mono this)]
+  have : ∑ p ∈ primesLE ⌊b⌋₊ \ primesLE ⌊a⌋₊, log p ≠ 0 := by linarith
+  obtain ⟨p, hp⟩ := Finset.nonempty_of_sum_ne_zero this
+  simp_rw [Finset.mem_sdiff, mem_primesLE] at hp
+  obtain ⟨⟨hpb, hpp⟩, _⟩ := hp
   refine ⟨p, hpp, ?_, ?_⟩
-  · calc a < ⌊a⌋₊ + 1 := Nat.lt_floor_add_one a
-      _ ≤ (p : ℝ) := by exact_mod_cast hap
-  · have hb_pos : 0 < ⌊b⌋₊ := lt_of_lt_of_le hpp.pos hpb
-    calc (p : ℝ) ≤ (⌊b⌋₊ : ℝ) := by exact_mod_cast hpb
-      _ ≤ b := Nat.floor_le (by linarith [Nat.floor_pos.mp hb_pos])
+  · grw [lt_floor_add_one a]
+    exact_mod_cast (by grind)
+  · rwa [← le_floor_iff]
+    grw [← hpp.one_le] at hpb
+    grind [one_le_floor_iff]
 
-/-- **Prime gaps from the prime number theorem.**  For every `ε > 0`, every sufficiently large
-`x` admits a prime in the interval `(x, (1 + ε) * x]`. -/
-theorem eventually_exists_prime_lt_and_le_mul {ε : ℝ} (hε : 0 < ε) :
-    ∀ᶠ x : ℝ in atTop, ∃ p : ℕ, p.Prime ∧ x < p ∧ (p : ℝ) ≤ (1 + ε) * x := by
-  have hlin : Tendsto (fun x : ℝ ↦ (1 + ε) * x) atTop atTop :=
-    Tendsto.const_mul_atTop (by linarith) tendsto_id
-  have hcomp : Tendsto (fun x ↦ θ ((1 + ε) * x) / ((1 + ε) * x)) atTop (𝓝 1) :=
-    tendsto_theta_div_atTop.comp hlin
-  have h1e : (1 : ℝ) + ε ≠ 0 := ne_of_gt (by linarith)
-  have h2 : Tendsto (fun x ↦ θ ((1 + ε) * x) / x) atTop (𝓝 (1 + ε)) := by
-    have hmul := hcomp.mul_const (1 + ε)
-    rw [one_mul] at hmul
-    refine hmul.congr' ?_
+/-- **Small prime gaps.**  For every `ε > 0`, every sufficiently large `x` admits a prime in the
+interval `(x, (1 + ε) * x]`. -/
+theorem eventually_exists_prime_mem_Ioc {ε : ℝ} (hε : 0 < ε) :
+    ∀ᶠ x in atTop, ∃ p : ℕ, p.Prime ∧ ↑p ∈ Set.Ioc x ((1 + ε) * x) := by
+  have : Tendsto (fun x ↦ θ ((1 + ε) * x) / ((1 + ε) * x)) atTop (𝓝 1) :=
+    tendsto_theta_div_atTop.comp (tendsto_id.const_mul_atTop (by linarith))
+  have : Tendsto (fun x ↦ θ ((1 + ε) * x) / x) atTop (𝓝 (1 + ε)) := by
+    convert (this.mul_const (1 + ε)).congr' ?_
+    · simp
     filter_upwards [eventually_gt_atTop (0 : ℝ)] with x hx
-    have hx0 : x ≠ 0 := hx.ne'
-    field_simp
-  have hdiff : Tendsto (fun x ↦ (θ ((1 + ε) * x) - θ x) / x) atTop (𝓝 ε) := by
-    have hs := h2.sub tendsto_theta_div_atTop
-    rw [add_sub_cancel_left] at hs
-    refine hs.congr' ?_
-    filter_upwards with x
-    rw [sub_div]
-  filter_upwards [(tendsto_order.1 hdiff).1 0 hε, eventually_gt_atTop (0 : ℝ)] with x hx0 hxpos
-  have hlt : θ x < θ ((1 + ε) * x) := by
-    rw [lt_div_iff₀ hxpos, zero_mul] at hx0
-    linarith
-  exact exists_prime_of_theta_lt hlt
+    field_simp [hx.ne']
+  have : Tendsto (fun x ↦ (θ ((1 + ε) * x) - θ x) / x) atTop (𝓝 ε) := by
+    have := this.sub tendsto_theta_div_atTop
+    rw [add_sub_cancel_left] at this
+    exact this.congr' (by filter_upwards; grind)
+  filter_upwards [(tendsto_order.1 this).1 0 hε, eventually_gt_atTop (0 : ℝ)] with x _ hx
+  exact exists_prime_of_theta_lt (by grind [lt_div_iff₀ hx])
 
 /-- **Primorial asymptotics**: `log (primorial n) / n → 1`. -/
-theorem tendsto_log_primorial_div_atTop :
-    Tendsto (fun n ↦ log (primorial n) / n) atTop (𝓝 1) := by
-  refine (tendsto_theta_div_atTop.comp (tendsto_natCast_atTop_atTop (R := ℝ))).congr fun n ↦ ?_
-  rw [Function.comp_apply, theta_eq_log_primorial, Nat.floor_natCast]
+theorem tendsto_log_primorial_div_atTop : Tendsto (fun n ↦ log (primorial n) / n) atTop (𝓝 1) :=
+  (tendsto_theta_div_atTop.comp tendsto_natCast_atTop_atTop).congr
+  (by simp [theta_eq_log_primorial])
 
 /-- **Primorial asymptotics**: `log (primorial n) ~ n`. -/
-theorem isEquivalent_log_primorial_id :
-    (fun n ↦ log (primorial n)) ~[atTop] (fun n ↦ (n : ℝ)) := by
+theorem isEquivalent_log_primorial_id : (fun n ↦ log (primorial n)) ~[atTop] (↑·) := by
   rw [isEquivalent_iff_tendsto_one
-    (by filter_upwards [eventually_gt_atTop 0] with n hn using by positivity)]
-  exact tendsto_log_primorial_div_atTop.congr fun n ↦ by simp [Pi.div_apply]
+    (by filter_upwards [eventually_gt_atTop 0] with _ _ using by positivity)]
+  exact tendsto_log_primorial_div_atTop.congr (by simp)
 
-/-- **Least common multiple asymptotics**: `log (Nat.lcmUpto n) / n → 1`. -/
-theorem tendsto_log_lcmUpto_div_atTop :
-    Tendsto (fun n ↦ log (Nat.lcmUpto n) / n) atTop (𝓝 1) := by
-  refine (tendsto_psi_div_atTop.comp (tendsto_natCast_atTop_atTop (R := ℝ))).congr fun n ↦ ?_
-  rw [Function.comp_apply, psi_eq_log_lcmUpto]
+/-- **Least common multiple asymptotics**: `log (lcmUpto n) / n → 1`. -/
+theorem tendsto_log_lcmUpto_div_atTop : Tendsto (fun n ↦ log (lcmUpto n) / n) atTop (𝓝 1) :=
+  (tendsto_psi_div_atTop.comp tendsto_natCast_atTop_atTop).congr (by simp [psi_eq_log_lcmUpto])
 
-/-- **Least common multiple asymptotics**: `log (Nat.lcmUpto n) ~ n`. -/
-theorem isEquivalent_log_lcmUpto_id :
-    (fun n ↦ log (Nat.lcmUpto n)) ~[atTop] (fun n ↦ (n : ℝ)) := by
+/-- **Least common multiple asymptotics**: `log (lcmUpto n) ~ n`. -/
+theorem isEquivalent_log_lcmUpto_id : (fun n ↦ log (lcmUpto n)) ~[atTop] (↑·) := by
   rw [isEquivalent_iff_tendsto_one
-    (by filter_upwards [eventually_gt_atTop 0] with n hn using by positivity)]
-  exact tendsto_log_lcmUpto_div_atTop.congr fun n ↦ by simp [Pi.div_apply]
+    (by filter_upwards [eventually_gt_atTop 0] with _ _ using by positivity)]
+  exact tendsto_log_lcmUpto_div_atTop.congr (by simp)
 
 end Chebyshev
