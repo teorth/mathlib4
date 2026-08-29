@@ -26,8 +26,11 @@ Wiener–Ikehara Tauberian theorem `WienerIkehara.tendsto_sum_div`.
 * `Chebyshev.isEquivalent_psi_id`: the `ψ`-form of the prime number theorem, `ψ x ~ x`
   (equivalently `Chebyshev.tendsto_psi_div_atTop`, `ψ x / x → 1`).
 * `Chebyshev.isEquivalent_theta_id`: the `θ`-form, `θ x ~ x`.
-* `Chebyshev.eventually_exists_prime_lt_and_le_mul`: for every `ε > 0`, every sufficiently large
-  `x` has a prime in `(x, (1 + ε) * x]`.
+* `Chebyshev.isEquivalent_primeCounting`: **the prime number theorem** `π x ~ x / log x`, deduced
+  from the `θ`-form by Abel summation.
+* `Chebyshev.eventually_exists_prime_mem_Ioc`: for every `ε > 0`, every sufficiently large `x` has
+  a prime in `(x, (1 + ε) * x]`.
+* `Chebyshev.isEquivalent_nth_prime_succ`: consecutive primes are asymptotically equal, `pₙ₊₁ ~ pₙ`.
 * `Chebyshev.isEquivalent_log_primorial_id`: `log (primorial n) ~ n`.
 * `Chebyshev.isEquivalent_log_lcmUpto_id`: `log (Nat.lcmUpto n) ~ n`.
 * `Mertens.tendsto_M_div_atTop` / `Mertens.isLittleO_M_id`: the **Möbius form of the prime number
@@ -105,6 +108,30 @@ theorem tendsto_theta_div_atTop : Tendsto (fun x ↦ θ x / x) atTop (𝓝 1) :=
 theorem isEquivalent_theta_id : θ ~[atTop] id := by
   rw [isEquivalent_iff_tendsto_one (by exact eventually_ne_atTop 0)]
   exact tendsto_theta_div_atTop.congr (by simp)
+
+/-- **The prime number theorem**: the prime counting function satisfies `π x ~ x / log x`.
+
+Deduced from the `θ`-form `θ x ~ x` via Abel summation `π ⌊x⌋ = θ x / log x + O(x / log² x)`
+(`primeCounting_eq_theta_div_log_add_integral`, `integral_theta_div_log_sq_isLittleO`), where the
+remainder is `o(x / log x)`. -/
+theorem isEquivalent_primeCounting :
+    (fun x ↦ (Nat.primeCounting ⌊x⌋₊ : ℝ)) ~[atTop] fun x ↦ x / log x := by
+  have h1 : (fun x ↦ θ x / log x) ~[atTop] fun x ↦ x / log x := by
+    rw [isEquivalent_iff_tendsto_one (by
+      filter_upwards [eventually_gt_atTop 1] with x hx
+      exact (div_pos (by linarith) (log_pos hx)).ne')]
+    refine tendsto_theta_div_atTop.congr' ?_
+    filter_upwards [eventually_gt_atTop 1] with x hx
+    rw [Pi.div_apply, div_div_div_cancel_right₀ (log_pos hx).ne']
+  have hlittle : (fun x ↦ (Nat.primeCounting ⌊x⌋₊ : ℝ) - θ x / log x) =o[atTop]
+      fun x ↦ x / log x := by
+    refine integral_theta_div_log_sq_isLittleO.congr' ?_ (Eventually.of_forall fun _ ↦ rfl)
+    filter_upwards [eventually_ge_atTop 2] with x hx
+    rw [primeCounting_eq_theta_div_log_add_integral hx]; ring
+  have heq : (fun x ↦ θ x / log x + ((Nat.primeCounting ⌊x⌋₊ : ℝ) - θ x / log x))
+      = fun x ↦ (Nat.primeCounting ⌊x⌋₊ : ℝ) := by funext x; ring
+  rw [← heq]
+  exact h1.add_isLittleO hlittle
 
 /-- If the Chebyshev function `θ` is strictly larger at `b` than at `a`, then there is a prime in
 the half-open interval `(a, b]`. -/
