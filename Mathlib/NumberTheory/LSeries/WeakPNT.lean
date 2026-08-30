@@ -164,23 +164,21 @@ theorem eventually_exists_prime_mem_Ioc {ε : ℝ} (hε : 0 < ε) :
 `n`-th prime.. -/
 theorem isEquivalent_nth_prime_succ :
     (fun n ↦ ↑(nth Nat.Prime (n + 1))) ~[atTop] fun n ↦ (nth Nat.Prime n : ℝ) := by
-  have hpos (n) : (0 : ℝ) < Nat.nth Nat.Prime n := mod_cast by linarith [add_two_le_nth_prime n]
-  have hmono : Monotone (nth Nat.Prime) := nth_monotone infinite_setOfPred_prime
-  have htop : Tendsto (fun n ↦ (nth Nat.Prime n : ℝ)) atTop atTop :=
-    tendsto_natCast_atTop_atTop.comp (nth_strictMono infinite_setOfPred_prime).tendsto_atTop
+  have hpos (n) : (0 : ℝ) < nth Nat.Prime n := mod_cast by linarith [add_two_le_nth_prime n]
   rw [isEquivalent_iff_tendsto_one (Eventually.of_forall fun n ↦ (hpos n).ne')]
   refine tendsto_order.2 ⟨fun c hc ↦ Eventually.of_forall fun n ↦ ?_, fun c hc ↦ ?_⟩
-  · rw [Pi.div_apply]
-    refine hc.trans_le ((le_div_iff₀ (hpos n)).mpr ?_)
-    rw [one_mul]; exact_mod_cast hmono n.le_succ
+  · dsimp
+    grw [hc]
+    field_simp [hpos n]
+    simp [nth_monotone infinite_setOfPred_prime n.le_succ]
   · obtain ⟨ε, hε, hεc⟩ : ∃ ε, 0 < ε ∧ 1 + ε < c := ⟨(c - 1) / 2, by linarith, by linarith⟩
-    filter_upwards [htop.eventually (eventually_exists_prime_mem_Ioc hε)] with n hn
-    obtain ⟨q, hq, hq1, hq2⟩ := hn
-    rw [Pi.div_apply, div_lt_iff₀ (hpos n)]
-    calc
-      _ ≤ ↑q := mod_cast (nth_add_one_le_iff infinite_setOfPred_prime hq).mpr (mod_cast hq1)
-      _ ≤ (1 + ε) * nth Nat.Prime n := hq2
-      _ < _ := mul_lt_mul_of_pos_right hεc (hpos n)
+    filter_upwards [(tendsto_natCast_atTop_atTop.comp (nth_strictMono
+      infinite_setOfPred_prime).tendsto_atTop).eventually (eventually_exists_prime_mem_Ioc hε)]
+      with n ⟨q, hq, hq1, hq2⟩
+    specialize hpos n
+    dsimp at *
+    grw [(nth_add_one_le_iff infinite_setOfPred_prime hq).mpr (mod_cast hq1), hq2, ← hεc]
+    simp [field]
 
 /-- **Primorial asymptotics**: `log (primorial n) / n → 1`. -/
 theorem tendsto_log_primorial_div_atTop : Tendsto (fun n ↦ log (primorial n) / n) atTop (𝓝 1) :=
