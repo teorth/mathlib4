@@ -43,7 +43,7 @@ theorem (`wiener_ikehara_smooth`), and non-negativity of `f` together with a smo
 (`exists_contDiff_one_on_Icc_support_eq_Ioo`) replaces the smooth cutoff by the indicator of an
 interval, whence the theorem (`tendsto_sum_div`).
 
-This file is a draft port from the `PrimeNumberTheoremAnd` project.
+This file is adapted from the `PrimeNumberTheoremAnd` project.
 -/
 
 @[expose] public section
@@ -437,7 +437,7 @@ private theorem lim_integ_G_mul {Ψ : 𝓢(ℝ, ℂ)} (hΨ : HasCompactSupport �
     apply Tendsto.mul_const
     refine (hG _ (by simp)).tendsto.comp <| tendsto_nhdsWithin_iff.mpr ⟨?_, ?_⟩
     · exact ((continuous_ofReal.tendsto _).add tendsto_const_nhds).mono_left nhdsWithin_le_nhds
-    · exact eventually_nhdsWithin_of_forall (fun x (hx : 1 < x) => by simp [hx.le])
+    · exact eventually_nhdsWithin_of_forall (fun x (hx : 1 < x) ↦ by simp [hx.le])
 
 private lemma lim_S_one_fourier {Ψ : 𝓢(ℝ, ℂ)} (hΨ : HasCompactSupport Ψ) :
     Tendsto (S 1 (𝓕 Ψ)) atTop (𝓝 0) := by
